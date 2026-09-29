@@ -185,6 +185,12 @@ footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--rule);color:v
 /* 줄 아무 칸에서나 끌어서 범위 고르기 */
 #sheetview table.xl tbody td { cursor: ns-resize; user-select: none; }
 #sheetview .gridbox.plain table.xl tbody td { cursor: default; user-select: text; }
+
+/* 취합 결과 맨 위 저장 버튼 */
+#step4 { scroll-margin-top: 12px; }
+#step4 .status .savebox { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+#step4 .status .savebox .msg { font-size: 12.5px; }
+#downloadTop { font-size: 15px; padding: 10px 20px; }
 </style>
 </head>
 <body>
@@ -243,7 +249,7 @@ footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--rule);color:v
 
 <section class="card hidden" id="step4">
   <h2><span class="n">4</span>취합 결과</h2>
-  <div class="status"><span id="runMsg"></span></div>
+  <div class="status"><span id="runMsg"></span><span class="savebox"><span class="msg" id="dlMsgTop"></span><button type="button" class="solid" id="downloadTop">취합 파일 저장하기</button></span></div>
   <div class="ledger" id="ledger"></div>
   <div class="tabs" role="tablist" id="tabs">
     <button role="tab" aria-selected="true" data-tab="preview">미리보기</button>
@@ -253,7 +259,7 @@ footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--rule);color:v
   </div>
   <div class="panel" id="panel"></div>
   <div class="getrow">
-    <button class="solid" id="download">취합 파일 내려받기</button>
+    <button class="solid" id="download">취합 파일 저장하기</button>
     <button id="downloadCard" class="hidden">세로형 취합표 내려받기</button>
     <button id="downloadChk">점검표 내려받기</button>
     <span class="msg" id="dlMsg"></span>
@@ -1692,9 +1698,10 @@ if (typeof module !== 'undefined') module.exports = STYLED;
     });
   }
   // 빈 양식을 넣으면 3단계(범위 표시)로 바로 내려가 보여 줌
-  function showRange() {
+  function showRange() { scrollToCard('step3'); }
+  function scrollToCard(id) {
     setTimeout(function () {
-      var el = $('step3');
+      var el = $(id);
       if (!el || el.classList.contains('hidden')) return;
       var y0 = window.scrollY;
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1745,6 +1752,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
         remerge();
       }
       refreshSteps();
+      if (tplWb && files.length) scrollToCard('step4');
     });
   }
   function clearFiles() {
@@ -2147,6 +2155,11 @@ if (typeof module !== 'undefined') module.exports = STYLED;
       $('dlMsg').textContent = '빈 양식의 서식과 수식을 그대로 살려 내려받았습니다.'; btn.disabled = false;
     }).catch(function (e) { clearTimeout(guard); plain('빈 양식에 채워 넣지 못해 서식 없는 파일로 내려받았습니다. (' + (e && e.message ? e.message : '') + ')'); });
   };
+  $('downloadTop').onclick = function () { $('download').click(); };
+  new MutationObserver(function () {
+    $('dlMsgTop').textContent = $('dlMsg').textContent;
+    $('downloadTop').disabled = $('download').disabled;
+  }).observe($('dlMsg'), { childList: true, characterData: true, subtree: true });
   $('downloadCard').onclick = function () {
     if (!summary) return;
     var wb = ENGINE.buildCardWorkbook(summary);
