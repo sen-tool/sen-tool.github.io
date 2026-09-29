@@ -13,7 +13,7 @@
 | 관내출장여비 지급내역 만들기 | [tools/local-travel.html](tools/local-travel.html) | 대상목록 + 지난달 파일 → 일반여비·요약 + 근거자료 |
 | 공사대장 만들기 | [tools/contract-ledger.html](tools/contract-ledger.html) | 인증키·기관코드·기간 → 계약 21개 항목 엑셀 |
 
-시험해 볼 자료: [samples/시험용_초과근무확인목록.xlsx](samples/시험용_초과근무확인목록.xlsx) (가짜 이름으로 만든 자료)
+시험해 볼 자료: [samples/](samples/) 폴더 (모두 가짜 이름·가짜 학교로 만든 자료). 웹 주소에서는 도구 화면의 「쓰는 법 · 결과 예시」 → **예시 파일로 해 보기**를 누르면 바로 들어갑니다.
 
 배포용 안내문(메일·메신저 문구, 도구별 사용법): [docs/안내문.md](docs/안내문.md)
 

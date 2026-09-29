@@ -4,29 +4,36 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>업무 자동화 도구모음</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
   :root {
-    --bg: #f7f6f2;
+    --bg: #f6f6f4;
     --card: #ffffff;
-    --ink: #2b3137;
-    --sub: #5f6b73;
-    --muted: #8a9299;
-    --line: #e3e0d9;
-    --paper: #f1efe9;
+    --ink: #26292e;
+    --sub: #5d646c;
+    --muted: #8b9199;
+    --line: #e6e5e1;
+    --paper: #f6f6f4;
     --navy: #2f5d8f;
     --accent: #3a6ea5;
-    --navy-soft: #edf2f8;
-    --side-w: 232px;
+    --navy-soft: #eef2f7;
+    --side-w: 236px;
   }
+  .c-teal   { --c: #0F6E56; --c-bg: #E1F5EE; --c-icon: #1D9E75; }
+  .c-purple { --c: #534AB7; --c-bg: #EEEDFE; --c-icon: #7F77DD; }
+  .c-pink   { --c: #993556; --c-bg: #FBEAF0; --c-icon: #D4537E; }
+  .c-coral  { --c: #993C1D; --c-bg: #FAECE7; --c-icon: #D85A30; }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--ink);
-    font-family: "Malgun Gothic", "맑은 고딕", sans-serif;
+    font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 고딕", sans-serif;
     line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
+  svg.i { width: 18px; height: 18px; flex-shrink: 0; }
 
   /* 왼쪽 메뉴 */
   .side {
@@ -36,44 +43,45 @@
     border-right: 1px solid var(--line);
     display: flex; flex-direction: column;
     overflow-y: auto;
+    padding: 0 12px;
   }
   .side .brand {
     display: block;
-    padding: 20px 18px 16px;
-    border-bottom: 1px solid var(--line);
+    padding: 22px 10px 14px;
     text-decoration: none;
     color: inherit;
   }
-  .side .brand strong { font-size: 1.05rem; color: var(--navy); }
-  .kicker { display: block; margin: 0 0 2px; font-size: 0.78rem; color: var(--muted); letter-spacing: 0.04em; }
+  .side .brand strong { font-size: 1.02rem; font-weight: 700; color: var(--ink); letter-spacing: -0.01em; }
+  .kicker { display: block; margin: 0 0 2px; font-size: 0.76rem; color: var(--muted); letter-spacing: 0.02em; }
   .home .kicker { margin-bottom: 4px; }
-  .side nav { padding: 8px 0 16px; flex: 1; }
+  .side nav { padding: 4px 0 16px; flex: 1; }
   .side .group {
-    margin: 16px 18px 4px;
-    font-size: 0.75rem;
+    margin: 16px 10px 4px;
+    font-size: 0.74rem;
     color: var(--muted);
-    letter-spacing: 0.02em;
   }
   .side nav a {
-    display: block;
-    padding: 7px 18px 7px 15px;
-    border-left: 3px solid transparent;
-    color: var(--ink);
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    color: var(--sub);
     text-decoration: none;
-    font-size: 0.92rem;
+    font-size: 0.9rem;
   }
-  .side nav a:hover { background: #e9e6df; }
+  .side nav a svg.i { color: var(--c-icon, var(--muted)); }
+  .side nav a:hover { background: #ecebe7; color: var(--ink); }
   .side nav a.on {
-    border-left-color: var(--accent);
     background: var(--card);
-    color: var(--navy);
-    font-weight: bold;
+    border-color: var(--line);
+    color: var(--ink);
+    font-weight: 600;
   }
-  .side nav a .tag { font-size: 0.72rem; color: #b0632a; font-weight: normal; margin-left: 4px; }
+  .side nav a .tag { font-size: 0.7rem; color: #854F0B; font-weight: normal; margin-left: auto; }
   .side .foot {
-    padding: 12px 18px 16px;
+    padding: 12px 10px 16px;
     border-top: 1px solid var(--line);
-    font-size: 0.75rem;
+    font-size: 0.74rem;
     color: var(--muted);
   }
 
@@ -93,14 +101,52 @@
   }
   .viewer .bar b { color: var(--ink); font-size: 0.95rem; margin-right: auto; }
   .viewer .bar a { color: var(--navy); white-space: nowrap; }
-  .viewer iframe { flex: 1; width: 100%; border: 0; background: var(--bg); }
+  .vbody { flex: 1; display: flex; min-height: 0; }
+  .viewer iframe { flex: 1; min-width: 0; width: 100%; border: 0; background: var(--bg); }
+  .viewer .bar .help-btn {
+    font: inherit; font-size: 0.82rem;
+    padding: 5px 12px;
+    border: 1px solid var(--line); border-radius: 999px;
+    background: var(--card); color: var(--ink); cursor: pointer; white-space: nowrap;
+  }
+  .viewer .bar .help-btn[aria-expanded="true"] { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .viewer .bar #viewer-report { color: var(--sub); }
+  .help {
+    width: 440px; flex-shrink: 0;
+    overflow-y: auto;
+    padding: 16px 18px 28px;
+    background: var(--card);
+    border-left: 1px solid var(--line);
+  }
+  .help[hidden] { display: none; }
+  .help-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .help-head b { font-size: 0.95rem; }
+  .help-head button { font: inherit; font-size: 0.8rem; border: 0; background: none; color: var(--muted); cursor: pointer; }
+  .guide { margin: 0; font-size: 0.86rem; }
+  .guide dt { margin-top: 10px; font-size: 0.76rem; color: var(--muted); }
+  .guide dd { margin: 2px 0 0; color: var(--ink); }
+  .guide dd ol { margin: 0; padding-left: 18px; }
+  .help-h { margin: 20px 0 6px; font-size: 0.95rem; }
+  .try-btn {
+    display: block; width: 100%; margin-top: 14px;
+    font: inherit; font-size: 0.88rem; font-weight: 600;
+    padding: 10px 12px;
+    border: 1px solid var(--line); border-radius: 12px;
+    background: var(--bg); color: var(--ink); cursor: pointer;
+  }
+  .try-btn:hover { border-color: #cfcdc6; }
+  .try-note { margin: 6px 0 0; font-size: 0.76rem; color: var(--muted); }
+  .try-note a { color: var(--sub); }
+  #help-preview .cap { margin: 0 0 6px; font-size: 0.78rem; color: var(--muted); }
+  #help-preview .cap code { font-family: inherit; color: var(--sub); }
+  #help-preview .tiles { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
 
   /* 첫 화면 */
   .home { display: none; }
   .home.on { display: block; }
   .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
-  .home header { padding: 36px 0 12px; }
-  .home h1 { font-size: 1.7rem; margin: 0 0 10px; color: var(--navy); letter-spacing: -0.01em; }
+  .home header { padding: 40px 0 8px; }
+  .home h1 { font-size: 1.75rem; font-weight: 700; margin: 0 0 8px; color: var(--ink); letter-spacing: -0.02em; }
   .home .lead { margin: 0; color: var(--sub); }
   .howto {
     display: flex; flex-wrap: wrap; gap: 8px 24px;
@@ -113,10 +159,47 @@
     content: counter(step);
     display: inline-block;
     width: 20px; height: 20px; margin-right: 6px;
-    border: 1px solid var(--navy); border-radius: 50%;
+    border: 1px solid var(--line); border-radius: 50%;
+    background: var(--card);
     text-align: center; line-height: 18px;
-    font-size: 0.75rem; color: var(--navy);
+    font-size: 0.75rem; color: var(--sub);
   }
+
+  /* 컬러 타일 */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 24px 0 0;
+  }
+  .tile {
+    display: flex; flex-direction: column;
+    min-height: 150px;
+    padding: 16px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    color: inherit;
+    text-decoration: none;
+    transition: border-color .15s, transform .15s;
+  }
+  .tile:hover { border-color: #cfcdc6; transform: translateY(-2px); }
+  .tile .top { display: flex; justify-content: space-between; align-items: center; }
+  .tile .ic {
+    width: 38px; height: 38px; border-radius: 11px;
+    display: grid; place-items: center;
+    background: var(--c-bg); color: var(--c);
+  }
+  .tile .ic svg.i { width: 20px; height: 20px; }
+  .tile .cat { font-size: 0.75rem; color: var(--c); }
+  .tile .t { margin-top: 12px; font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; }
+  .tile .d { margin-top: 2px; font-size: 0.83rem; color: var(--sub); flex: 1; }
+  .tile .f { display: flex; justify-content: space-between; margin-top: 12px; font-size: 0.78rem; color: var(--muted); }
+  .tile .f .online { color: #854F0B; }
+  .tile .f .go { color: var(--sub); }
+  @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .sec { margin: 40px 0 0; font-size: 1.05rem; font-weight: 700; color: var(--ink); }
+  .sec-sub { margin: 2px 0 0; font-size: 0.85rem; color: var(--muted); }
 
   .list { margin: 8px 0 0; }
   .tool {
@@ -124,10 +207,12 @@
     padding: 18px 20px 20px;
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: 16px;
   }
-  .tool h3 { font-size: 1.02rem; margin: 0; }
-  .tool h3 a { color: var(--navy); text-decoration: none; }
+  .tool h3 { font-size: 1rem; margin: 0; display: flex; align-items: center; gap: 8px; }
+  .tool h3 .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c-icon); }
+  .tool h3 a { color: var(--ink); text-decoration: none; }
+  .list .desc, .list .io { display: none; }
   .tool h3 a:hover { text-decoration: underline; }
   .tool h3 a::after { content: " ›"; color: var(--muted); }
 
@@ -205,16 +290,29 @@
 
   .note {
     margin: 28px 0 0;
-    padding: 14px 16px;
-    background: var(--navy-soft);
-    border-left: 4px solid var(--accent);
-    border-radius: 0 8px 8px 0;
+    padding: 14px 18px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
     font-size: 0.88rem;
+    color: var(--sub);
   }
+  .note b { color: var(--ink); }
   .note p { margin: 0 0 6px; }
   .note p:last-child { margin: 0; }
   .home footer { margin: 24px 0 40px; font-size: 0.85rem; color: var(--muted); }
   .home footer a { color: var(--navy); }
+
+  /* 업데이트 소식 */
+  .upd { margin-top: 12px; }
+  .upd-item { padding: 16px 20px; margin-top: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; }
+  .upd-v { display: flex; align-items: baseline; gap: 10px; }
+  .upd-v b { font-size: 1rem; }
+  .upd-v span { font-size: 0.8rem; color: var(--muted); }
+  .upd-item ul { margin: 8px 0 0; padding-left: 18px; font-size: 0.9rem; color: var(--sub); }
+  .upd-item li b { color: var(--ink); font-weight: 600; }
+  .side .foot a { color: inherit; text-decoration: none; }
+  .side .foot a:hover { text-decoration: underline; }
 
   /* 의견 보내기 */
   .fb {
@@ -222,7 +320,7 @@
     padding: 20px;
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: 16px;
   }
   .fb-to { margin: 0 0 14px; color: var(--sub); }
   .fb-to b { color: var(--ink); margin: 0 6px; }
@@ -237,9 +335,9 @@
     padding: 10px 20px;
     background: var(--accent);
     color: #fff;
-    border-radius: 6px;
+    border-radius: 10px;
     text-decoration: none;
-    font-weight: bold;
+    font-weight: 600;
   }
   .fb-send:hover { background: var(--navy); }
   .fb-hint { margin: 10px 0 0; font-size: 0.85rem; color: var(--muted); }
@@ -249,7 +347,7 @@
     padding: 14px 16px;
     background: var(--card);
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: 14px;
     font-family: inherit;
     font-size: 0.9rem;
     line-height: 1.8;
@@ -263,23 +361,24 @@
       position: static; width: auto; height: auto;
       border-right: 0; border-bottom: 1px solid var(--line);
     }
-    .side .brand { padding: 14px 16px 10px; }
+    .side { padding: 0 8px; }
+    .side .brand { padding: 14px 8px 8px; }
     .side nav {
       display: flex; overflow-x: auto; padding: 0;
     }
     .side .group, .side .foot { display: none; }
-    .side nav a {
-      flex-shrink: 0;
-      border-left: 0; border-bottom: 3px solid transparent;
-      padding: 10px 14px;
-    }
-    .side nav a.on { border-bottom-color: var(--navy); background: transparent; }
+    .side nav { gap: 4px; padding-bottom: 8px; }
+    .side nav a { flex-shrink: 0; padding: 7px 12px; }
     .main { margin-left: 0; }
     .viewer { height: calc(100vh - 110px); }
     .viewer .bar { flex-wrap: wrap; gap: 6px 12px; }
     .viewer .bar b { flex-basis: 100%; }
+    .vbody { flex-direction: column; }
+    .help { width: auto; max-height: 55vh; border-left: 0; border-top: 1px solid var(--line); order: -1; }
     .wrap { padding: 0 16px; }
     .home header { padding-top: 20px; }
+    .grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .tile { min-height: 0; padding: 14px; }
   }
 </style>
 </head>
@@ -290,29 +389,40 @@
     <strong>업무 자동화 도구모음</strong>
   </a>
   <nav aria-label="도구">
-    <a href="#" data-id="">처음 화면</a>
+    <a href="#" data-id=""><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>처음 화면</a>
     <div class="group">복무 · 급여</div>
-    <a href="#overtime-meal" data-id="overtime-meal">특근매식비 내역서</a>
-    <a href="#overtime-missing" data-id="overtime-missing">초과근무 미입력 찾기</a>
+    <a class="c-teal" href="#overtime-meal" data-id="overtime-meal"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 3v8a3 3 0 0 0 6 0V3M7 3v18M17 3c-2 0-3 2-3 5s1 4 3 4v9"/></svg>특근매식비 내역서</a>
+    <a class="c-teal" href="#overtime-missing" data-id="overtime-missing"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>초과근무 미입력 찾기</a>
     <div class="group">여비</div>
-    <a href="#local-travel" data-id="local-travel">관내출장여비 지급내역</a>
+    <a class="c-purple" href="#local-travel" data-id="local-travel"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>관내출장여비 지급내역</a>
     <div class="group">자료 취합</div>
-    <a href="#excel-merge" data-id="excel-merge">엑셀 취합기</a>
+    <a class="c-pink" href="#excel-merge" data-id="excel-merge"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>엑셀 취합기</a>
     <div class="group">계약 · 시설</div>
-    <a href="#contract-ledger" data-id="contract-ledger">공사대장 만들기<span class="tag">인터넷</span></a>
+    <a class="c-coral" href="#contract-ledger" data-id="contract-ledger"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>공사대장 만들기<span class="tag">인터넷</span></a>
     <div class="group">소통</div>
-    <a href="#feedback" data-id="feedback">의견·오류 보내기</a>
+    <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot" id="ver">v1.0.6 · 2026.09.29 수정</div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.1.0 · 2026.09.30 수정</a></div>
 </aside>
 
 <div class="main">
   <section class="viewer" id="viewer">
     <div class="bar">
       <b id="viewer-title"></b>
+      <button type="button" class="help-btn" id="help-toggle" aria-expanded="false" aria-controls="help">쓰는 법 · 결과 예시</button>
+      <a id="viewer-report" href="#feedback">오류 알리기</a>
       <a id="viewer-pop" href="#" target="_blank" rel="noopener">새 창으로 열기 ↗</a>
     </div>
-    <iframe id="viewer-frame" title="도구 화면"></iframe>
+    <div class="vbody">
+      <iframe id="viewer-frame" title="도구 화면"></iframe>
+      <aside class="help" id="help" hidden aria-label="쓰는 법과 결과 예시">
+        <div class="help-head"><b>쓰는 법</b><button type="button" id="help-close" aria-label="닫기">닫기 ✕</button></div>
+        <dl class="guide" id="help-guide"></dl>
+        <div id="help-try"></div>
+        <h4 class="help-h">결과 예시</h4>
+        <div id="help-preview"></div>
+      </aside>
+    </div>
   </section>
 
   <section class="home" id="feedback-page">
@@ -343,22 +453,94 @@
     </div>
   </section>
 
+  <section class="home" id="updates-page">
+    <div class="wrap">
+      <header>
+        <p class="kicker">교육청</p>
+        <h1>업데이트 소식</h1>
+        <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
+      </header>
+      <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.1.0</b><span>2026.09.30</span></div>
+          <ul>
+            <li>새 디자인: 도구 타일, 분류 색 아이콘, 새 글꼴(Pretendard)</li>
+            <li>도구 화면에 <b>쓰는 법 · 결과 예시</b> 창 추가 (도구 위쪽 버튼)</li>
+            <li><b>예시 파일로 해 보기</b>: 가상 자료를 넣어 바로 결과를 볼 수 있어요</li>
+            <li>도구마다 <b>오류 알리기</b> 버튼 (도구 이름이 채워진 메일)</li>
+            <li>업데이트 소식 페이지 추가</li>
+          </ul>
+        </div>
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.0.6</b><span>2026.09.29</span></div>
+          <ul>
+            <li>엑셀 취합기: 학교 파일을 넣으면 취합 결과로 바로 이동, 위쪽에 「취합 파일 저장하기」 버튼</li>
+            <li>엑셀 취합기: 학교가 보낸 시트 이름별로 결과 시트를 따로 만듦</li>
+            <li>엑셀 취합기: 행 번호뿐 아니라 줄 아무 곳이나 끌어서 범위 고르기</li>
+            <li>엑셀 취합기: 빈 양식을 넣으면 범위 표시로 바로 이동</li>
+          </ul>
+        </div>
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.0</b><span>2026.09.29</span></div>
+          <ul><li>처음 공개: 특근매식비, 초과근무 미입력 찾기, 관내출장여비, 엑셀 취합기, 공사대장</li></ul>
+        </div>
+      </div>
+      <footer>개인이 만든 비공식 업무 보조 도구입니다. · <a href="#feedback">의견·오류 보내기</a></footer>
+    </div>
+  </section>
+
   <section class="home" id="home">
     <div class="wrap">
       <header>
         <p class="kicker">교육청</p>
         <h1>업무 자동화 도구모음</h1>
-        <p class="lead">메뉴에서 도구를 고르세요. 설치 없이 브라우저에서 바로 실행되고, 넣으신 자료는 이 PC 밖으로 나가지 않습니다.</p>
+        <p class="lead">매달 반복되는 엑셀 작업을 파일 하나로 끝냅니다. 설치 없이 브라우저에서 바로 쓰고, 넣은 자료는 이 PC 밖으로 나가지 않아요.</p>
         <ol class="howto">
           <li>도구 고르기</li>
           <li>엑셀 파일 끌어 놓기</li>
-          <li>화면에서 확인 후 내려받기</li>
+          <li>결과 확인 후 내려받기</li>
         </ol>
       </header>
 
+      <nav class="grid" aria-label="도구 바로가기">
+        <a class="tile c-teal" href="#overtime-meal">
+          <div class="top"><span class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 3v8a3 3 0 0 0 6 0V3M7 3v18M17 3c-2 0-3 2-3 5s1 4 3 4v9"/></svg></span><span class="cat">복무 · 급여</span></div>
+          <div class="t">특근매식비 내역서 만들기</div>
+          <div class="d">나이스 초과근무확인목록 → 제출용 내역서 4개 시트</div>
+          <div class="f"><span>인터넷 없이 됨</span><span class="go">열기 →</span></div>
+        </a>
+        <a class="tile c-teal" href="#overtime-missing">
+          <div class="top"><span class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="cat">복무 · 급여</span></div>
+          <div class="t">초과근무 미입력 찾기</div>
+          <div class="d">나이스 목록 + 지문 기록 → 나이스에 넣을 시각</div>
+          <div class="f"><span>인터넷 없이 됨</span><span class="go">열기 →</span></div>
+        </a>
+        <a class="tile c-purple" href="#local-travel">
+          <div class="top"><span class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></span><span class="cat">여비</span></div>
+          <div class="t">관내출장여비 지급내역 만들기</div>
+          <div class="d">대상목록 + 지난달 파일 → 일반여비·요약 + 근거자료</div>
+          <div class="f"><span>인터넷 없이 됨</span><span class="go">열기 →</span></div>
+        </a>
+        <a class="tile c-pink" href="#excel-merge">
+          <div class="top"><span class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg></span><span class="cat">자료 취합</span></div>
+          <div class="t">엑셀 취합기</div>
+          <div class="d">빈 양식 + 학교에서 받은 엑셀들 → 양식 서식 그대로 취합 파일</div>
+          <div class="f"><span>인터넷 없이 됨</span><span class="go">열기 →</span></div>
+        </a>
+        <a class="tile c-coral" href="#contract-ledger">
+          <div class="top"><span class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><span class="cat">계약 · 시설</span></div>
+          <div class="t">공사대장 만들기</div>
+          <div class="d">인증키·기관코드·기간 → 계약 21개 항목 엑셀 (공공데이터포털 인증키 필요)</div>
+          <div class="f"><span class="online">조달청 서버 접속</span><span class="go">열기 →</span></div>
+        </a>
+      </nav>
+
+      <h2 class="sec">결과 미리 보기</h2>
+      <p class="sec-sub">도구마다 어떤 엑셀이 나오는지 가상 자료로 보여 드려요. 아래 시트 이름을 누르면 다른 시트도 볼 수 있어요.</p>
+
       <div class="list">
-        <div class="tool" data-id="overtime-meal">
-          <h3><a href="#overtime-meal">특근매식비 내역서 만들기</a></h3>
+        <div class="tool c-teal" data-id="overtime-meal">
+          <h3><span class="dot"></span><a href="#overtime-meal">특근매식비 내역서 만들기</a></h3>
           <p class="desc">나이스 초과근무 자료로 제출용 내역서를 만듭니다.</p>
           <p class="io"><span class="in">나이스 초과근무확인목록</span><span class="arrow">→</span><span class="out">제출용 내역서 4개 시트</span><span class="net">· 인터넷 불필요</span></p>
           <details class="preview" open>
@@ -411,8 +593,8 @@
           </details>
         </div>
 
-        <div class="tool" data-id="overtime-missing">
-          <h3><a href="#overtime-missing">초과근무 미입력 찾기</a></h3>
+        <div class="tool c-teal" data-id="overtime-missing">
+          <h3><span class="dot"></span><a href="#overtime-missing">초과근무 미입력 찾기</a></h3>
           <p class="desc">지문 기록과 대조해 나이스에 빠진 초과근무 시각을 찾습니다.</p>
           <p class="io"><span class="in">나이스 목록 + 지문 기록</span><span class="arrow">→</span><span class="out">나이스에 넣을 시각</span><span class="net">· 인터넷 불필요</span></p>
           <details class="preview" open>
@@ -445,8 +627,8 @@
           </details>
         </div>
 
-        <div class="tool" data-id="local-travel">
-          <h3><a href="#local-travel">관내출장여비 지급내역 만들기</a></h3>
+        <div class="tool c-purple" data-id="local-travel">
+          <h3><span class="dot"></span><a href="#local-travel">관내출장여비 지급내역 만들기</a></h3>
           <p class="desc">관내출장 대상목록으로 지급내역과 근거자료를 만듭니다.</p>
           <p class="io"><span class="in">대상목록 + 지난달 파일</span><span class="arrow">→</span><span class="out">일반여비·요약 + 근거자료</span><span class="net">· 인터넷 불필요</span></p>
           <details class="preview" open>
@@ -484,8 +666,8 @@
           </details>
         </div>
 
-        <div class="tool" data-id="excel-merge">
-          <h3><a href="#excel-merge">엑셀 취합기</a></h3>
+        <div class="tool c-pink" data-id="excel-merge">
+          <h3><span class="dot"></span><a href="#excel-merge">엑셀 취합기</a></h3>
           <p class="desc">학교에서 받은 엑셀을 빈 양식 하나로 모읍니다.</p>
           <p class="io"><span class="in">빈 양식 + 학교에서 받은 엑셀들</span><span class="arrow">→</span><span class="out">양식 서식 그대로 취합 파일</span><span class="net">· 인터넷 불필요</span></p>
           <details class="preview" open>
@@ -508,8 +690,8 @@
           </details>
         </div>
 
-        <div class="tool" data-id="contract-ledger">
-          <h3><a href="#contract-ledger">공사대장 만들기</a></h3>
+        <div class="tool c-coral" data-id="contract-ledger">
+          <h3><span class="dot"></span><a href="#contract-ledger">공사대장 만들기</a></h3>
           <p class="desc">나라장터 계약정보를 불러와 공사대장을 만듭니다. 공공데이터포털 인증키가 필요합니다.</p>
           <p class="io"><span class="in">인증키·기관코드·기간</span><span class="arrow">→</span><span class="out">계약 21개 항목 엑셀</span><span class="net online">· 조달청 서버 접속</span></p>
           <details class="preview" open>
@@ -554,8 +736,8 @@
   });
 
   (function () {
-    var VERSION = '1.0.6';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.09.29';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.1.0';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.09.30';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
@@ -571,11 +753,116 @@
     var pop = document.getElementById('viewer-pop');
     var links = document.querySelectorAll('.side nav a');
     var fbPage = document.getElementById('feedback-page');
+    var PAGES = { feedback: fbPage, updates: document.getElementById('updates-page') };
+    var PAGE_TITLE = { feedback: '의견·오류 보내기', updates: '업데이트 소식' };
+
+    // 도구별 세 줄 안내: 준비물 / 순서 / 확인할 점
+    var GUIDE = {
+      'overtime-meal': {
+        need: '나이스 초과근무확인목록 (나이스 › 복무 › 초과근무관리 › 초과근무확인 › 한 달 기간으로 조회 › 엑셀다운). 확인대장은 있으면 함께.',
+        steps: ['받은 엑셀을 도구 화면에 끌어 놓기', '인원·건수·총액과 날짜별 내역 확인', '「엑셀 파일로 내려받기」'],
+        check: '「검증표」 시트에서 날짜별 판정(하루 합계 1시간 이상 = 1건)과 합계를 기존 계산과 대조하세요. 검증표는 제출하지 않아도 됩니다.'
+      },
+      'overtime-missing': {
+        need: '나이스 초과근무확인목록 + 지문(출퇴근) 기록 파일 (담당자에게 받은 것)',
+        steps: ['두 파일을 각각 넣기', '파란 칸의 「넣을 시각」 확인', '목록을 내려받아 나이스에 입력'],
+        check: '「넣을 값 없는 건」 시트는 직접 확인하세요. 지문이 하나뿐인 날은 시작 시각을 따로 확인해야 합니다.'
+      },
+      'local-travel': {
+        need: 'K-에듀파인에서 받은 관내여비대상목록. 지난달 지급내역 파일이 있으면 서식과 명단을 그대로 이어 씁니다.',
+        steps: ['대상목록(과 지난달 파일) 넣기', '사람별 4시간 미만 · 이상 일수와 금액 확인', '「엑셀 파일로 내려받기」'],
+        check: '4시간 미만(1만 원)·이상(2만 원) 구분과 합계 금액을 대상목록과 대조하세요. 대상목록은 근거자료로 결과 파일에 붙습니다.'
+      },
+      'excel-merge': {
+        need: '학교에 보냈던 빈 양식 + 학교에서 받은 엑셀 파일들',
+        steps: ['빈 양식 넣기 → 색칠된 범위 확인 (틀리면 줄을 끌어서 고치기)', '학교 파일을 한꺼번에 넣기', '「취합 파일 저장하기」'],
+        check: '「뺀 줄」·「확인 필요」 탭과 점검표로 빠진 학교, 예시로 판단해 뺀 줄을 확인하세요.'
+      },
+      'contract-ledger': {
+        need: '공공데이터포털 인증키(일반 인증키 Decoding)와 기관코드(도구 안에서 이름으로 검색). 인터넷이 필요합니다.',
+        steps: ['인증키·기관코드·조회 기간 입력', '「조회 시작」', '「공사대장 엑셀로 내려받기」'],
+        check: '주황 칸(발주일·발주금액·발주 담당자·검사검수일·준공금액)은 나라장터에 없어 직접 채웁니다. 기관 방화벽에 막히면 다른 PC에서 조회하세요.'
+      }
+    };
+    function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+    // 예시 파일로 해 보기: 가상 자료를 도구의 파일 칸에 차례로 넣음 (같은 사이트 안이라 가능)
+    var SAMPLES = {
+      'overtime-meal': { note: '가상 직원 3명의 7월 초과근무 자료', steps: [['#file', ['시험용_초과근무확인목록.xlsx']]] },
+      'overtime-missing': { note: '가상 직원 4명의 8월 초과근무 목록과 지문 기록', steps: [['#f1', ['초과근무미입력_1_초과근무확인목록_2026년8월.xlsx']], ['#f2', ['초과근무미입력_2_지문기록_2026년8월.xlsx']]] },
+      'local-travel': { note: '가상 직원 3명의 8월 관내출장 대상목록과 근무상황부', steps: [['#f1', ['관내여비_1_대상목록_2026년8월.xlsx']], ['#f3', ['관내여비_3_근무상황부_2026년8월.xlsx']]] },
+      'excel-merge': { note: '가상 빈 양식과 학교 2곳의 제출 파일', steps: [['#tplInput', ['엑셀취합_빈양식.xlsx']], ['#fileInput', ['엑셀취합_학교1_가나초.xlsx', '엑셀취합_학교2_다라중.xlsx']]] }
+    };
+    var wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+    function runSample(id, btn, msg) {
+      var sm = SAMPLES[id], fr = document.getElementById('viewer-frame');
+      btn.disabled = true; msg.textContent = '예시 파일을 넣는 중…';
+      var ready = function () {
+        var d = fr.contentDocument;
+        return d && d.readyState === 'complete' && d.querySelector(sm.steps[0][0]) ? Promise.resolve() : wait(300).then(ready);
+      };
+      var chain = ready();
+      sm.steps.forEach(function (st) {
+        chain = chain.then(function () {
+          return Promise.all(st[1].map(function (n) {
+            return fetch('samples/' + encodeURIComponent(n)).then(function (r) { if (!r.ok) throw new Error(n); return r.arrayBuffer(); })
+              .then(function (b) { return new fr.contentWindow.File([b], n); });
+          })).then(function (files) {
+            var w = fr.contentWindow, inp = w.document.querySelector(st[0]), dt = new w.DataTransfer();
+            files.forEach(function (f) { dt.items.add(f); });
+            inp.files = dt.files;
+            inp.dispatchEvent(new w.Event('change', { bubbles: true }));
+            return wait(1500);
+          });
+        });
+      });
+      chain.then(function () { msg.textContent = '넣었어요. 도구 화면에서 결과를 확인해 보세요.'; btn.disabled = false; })
+        .catch(function (e) { msg.textContent = '예시 파일을 넣지 못했어요. 아래 파일을 내려받아 직접 넣어 보세요.'; btn.disabled = false; });
+    }
+    window.fillTry = function (id) {
+      var box = document.getElementById('help-try'), sm = SAMPLES[id];
+      if (!sm) { box.innerHTML = '<p class="try-note">이 도구는 인증키가 필요해서 예시 파일이 없어요. 아래 결과 예시를 참고하세요.</p>'; return; }
+      var files = [];
+      sm.steps.forEach(function (st) { st[1].forEach(function (n) { files.push(n); }); });
+      box.innerHTML = '<button type="button" class="try-btn">예시 파일로 해 보기</button>' +
+        '<p class="try-note" id="try-msg">' + esc(sm.note) + '를 도구에 바로 넣어요. 모두 가짜 자료예요.</p>' +
+        '<p class="try-note">예시 파일 내려받기: ' + files.map(function (n) { return '<a href="samples/' + encodeURIComponent(n) + '" download>' + esc(n.replace(/\.xlsx$/, '')) + '</a>'; }).join(', ') + '</p>';
+      box.querySelector('.try-btn').addEventListener('click', function () { runSample(id, this, document.getElementById('try-msg')); });
+    };
+
+    var help = document.getElementById('help');
+    var helpBtn = document.getElementById('help-toggle');
+    var HELP_KEY = 'seomu.helpOpen';
+    function helpPref() {
+      try { var v = localStorage.getItem(HELP_KEY); if (v !== null) return v === '1'; } catch (e) {}
+      return window.innerWidth >= 1280;   // 처음엔 넓은 화면에서만 열어 둠
+    }
+    function setHelp(open, remember) {
+      help.hidden = !open;
+      helpBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (remember) { try { localStorage.setItem(HELP_KEY, open ? '1' : '0'); } catch (e) {} }
+    }
+    helpBtn.addEventListener('click', function () { setHelp(help.hidden, true); });
+    document.getElementById('help-close').addEventListener('click', function () { setHelp(false, true); });
+    function fillHelp(id) {
+      var g = GUIDE[id];
+      document.getElementById('help-guide').innerHTML = g ?
+        '<dt>준비물</dt><dd>' + esc(g.need) + '</dd>' +
+        '<dt>순서</dt><dd><ol>' + g.steps.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ol></dd>' +
+        '<dt>확인할 점</dt><dd>' + esc(g.check) + '</dd>' : '';
+      var box = document.getElementById('help-preview');
+      box.innerHTML = '';
+      var src = document.querySelector('.tool[data-id="' + id + '"] .preview');
+      if (src) Array.prototype.forEach.call(src.children, function (el) { if (el.tagName !== 'SUMMARY') box.appendChild(el.cloneNode(true)); });
+      if (window.fillTry) window.fillTry(id);
+      setHelp(helpPref(), false);
+    }
     (function () {   // 메일 주소를 화면에서만 조립 (자동 수집 방지)
       var el = document.getElementById('fb-mail');
       var rev = function (t) { return t.split('').reverse().join(''); };
       var addr = rev(el.getAttribute('data-u')) + '@' + rev(el.getAttribute('data-d'));
       el.textContent = addr;
+      window.__fbAddr = addr;
       var send = document.querySelector('.fb-send');
       send.href = 'mailto:' + addr + '?' + send.getAttribute('data-q');
     })();
@@ -590,23 +877,26 @@
       var id = location.hash.slice(1);
       var name = TOOLS[id];
       links.forEach(function (a) {
-        a.classList.toggle('on', a.getAttribute('data-id') === (name || id === 'feedback' ? id : ''));
+        a.classList.toggle('on', a.getAttribute('data-id') === (name || PAGES[id] ? id : ''));
       });
       if (name) {
         var src = 'tools/' + id + '.html?v=' + VERSION;
         if (frame.getAttribute('src') !== src) frame.setAttribute('src', src);
         title.textContent = name;
         pop.href = src;
+        var body = '■ 도구 이름: ' + name + '\n■ 하려던 일: \n■ 생긴 일 (화면에 나온 말 그대로): \n■ 넣은 파일 종류: \n\n※ 개인정보가 든 파일은 첨부하지 마세요.';
+        document.getElementById('viewer-report').href = 'mailto:' + window.__fbAddr + '?subject=' + encodeURIComponent('[업무 자동화 도구] 오류 알리기 - ' + name) + '&body=' + encodeURIComponent(body);
+        fillHelp(id);
         document.title = name + ' · 업무 자동화 도구모음';
         home.classList.remove('on');
-        fbPage.classList.remove('on');
+        Object.keys(PAGES).forEach(function (k) { PAGES[k].classList.remove('on'); });
         viewer.classList.add('on');
       } else {
-        var fb = id === 'feedback';
-        document.title = fb ? '의견·오류 보내기 · 업무 자동화 도구모음' : '업무 자동화 도구모음';
+        var pg = PAGES[id] ? id : '';
+        document.title = pg ? PAGE_TITLE[pg] + ' · 업무 자동화 도구모음' : '업무 자동화 도구모음';
         viewer.classList.remove('on');
-        home.classList.toggle('on', !fb);
-        fbPage.classList.toggle('on', fb);
+        home.classList.toggle('on', !pg);
+        Object.keys(PAGES).forEach(function (k) { PAGES[k].classList.toggle('on', k === pg); });
       }
       window.scrollTo(0, 0);
     }
