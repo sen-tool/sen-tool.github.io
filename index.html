@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>업무 자동화 도구모음</title>
+<title>업무 자동화 도구</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <style>
   :root {
@@ -414,7 +414,7 @@
 <aside class="side">
   <a class="brand" href="#">
     <small class="kicker">교육청</small>
-    <strong>업무 자동화 도구모음</strong>
+    <strong>업무 자동화 도구</strong>
   </a>
   <nav aria-label="도구">
     <a href="#" data-id=""><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>처음 화면</a>
@@ -528,7 +528,7 @@
     <div class="wrap">
       <header>
         <p class="kicker">교육청</p>
-        <h1>업무 자동화 도구모음</h1>
+        <h1>업무 자동화 도구</h1>
         <p class="lead">매달 반복되는 엑셀 작업을 파일 하나로 끝냅니다. 설치 없이 브라우저에서 바로 쓰고, 넣은 자료는 이 PC 밖으로 나가지 않아요.</p>
         <ol class="howto">
           <li>도구 고르기</li>
@@ -936,13 +936,13 @@
         var body = '■ 도구 이름: ' + name + '\n■ 하려던 일: \n■ 생긴 일 (화면에 나온 말 그대로): \n■ 넣은 파일 종류: \n\n※ 개인정보가 든 파일은 첨부하지 마세요.';
         document.getElementById('viewer-report').href = 'mailto:' + window.__fbAddr + '?subject=' + encodeURIComponent('[업무 자동화 도구] 오류 알리기 - ' + name) + '&body=' + encodeURIComponent(body);
         fillHelp(id);
-        document.title = name + ' · 업무 자동화 도구모음';
+        document.title = name + ' · 업무 자동화 도구';
         home.classList.remove('on');
         Object.keys(PAGES).forEach(function (k) { PAGES[k].classList.remove('on'); });
         viewer.classList.add('on');
       } else {
         var pg = PAGES[id] ? id : '';
-        document.title = pg ? PAGE_TITLE[pg] + ' · 업무 자동화 도구모음' : '업무 자동화 도구모음';
+        document.title = pg ? PAGE_TITLE[pg] + ' · 업무 자동화 도구' : '업무 자동화 도구';
         viewer.classList.remove('on');
         home.classList.toggle('on', !pg);
         Object.keys(PAGES).forEach(function (k) { PAGES[k].classList.toggle('on', k === pg); });
@@ -980,7 +980,7 @@
       'samples/초과근무미입력_1_초과근무확인목록_2026년8월.xlsx', 'samples/초과근무미입력_2_지문기록_2026년8월.xlsx',
       'samples/관내여비_1_대상목록_2026년8월.xlsx', 'samples/관내여비_3_근무상황부_2026년8월.xlsx',
       'samples/엑셀취합_빈양식.xlsx', 'samples/엑셀취합_학교1_가나초.xlsx', 'samples/엑셀취합_학교2_다라중.xlsx'];
-    var README_TXT = '업무 자동화 도구모음 (v' + VERSION + ' · ' + UPDATED + ')\r\n\r\n' +
+    var README_TXT = '업무 자동화 도구 (v' + VERSION + ' · ' + UPDATED + ')\r\n\r\n' +
       '1. 이 압축 파일을 원하는 폴더에 풀어 주세요.\r\n' +
       '2. index.html 을 더블클릭하면 첫 화면이 열립니다.\r\n' +
       '   도구만 쓰려면 tools 폴더의 파일을 바로 더블클릭해도 됩니다.\r\n' +
@@ -1004,7 +1004,7 @@
       var btn = this, msg = document.getElementById('dl-msg');
       btn.disabled = true; msg.textContent = '파일을 모으는 중…';
       loadJSZip().then(function (JSZip) {
-        var zip = new JSZip(), root = zip.folder('업무자동화도구모음');
+        var zip = new JSZip(), root = zip.folder('업무자동화도구');
         root.file('처음_읽어주세요.txt', README_TXT);
         return Promise.all(BUNDLE.map(function (path) {
           var url = path.split('/').map(encodeURIComponent).join('/') + (path.slice(-5) === '.html' ? '?v=' + VERSION : '');
@@ -1016,7 +1016,7 @@
       }).then(function (blob) {
         var a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = '업무자동화도구모음_v' + VERSION + '.zip';
+        a.download = '업무자동화도구_v' + VERSION + '.zip';
         document.body.appendChild(a); a.click();
         setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
         msg.textContent = '받았어요. 업무망 PC로 옮겨 압축을 풀고 index.html 을 여세요.';
