@@ -181,6 +181,10 @@ footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--rule);color:v
 .seeRange:hover { text-decoration: underline; }
 #sheetview .rangeinfo { font-size: 14px; padding: 12px 14px; background: #fff; border: 1px solid var(--rule); border-radius: 8px; margin-bottom: 10px; }
 #step3 { scroll-margin-top: 12px; }
+
+/* 줄 아무 칸에서나 끌어서 범위 고르기 */
+#sheetview table.xl tbody td { cursor: ns-resize; user-select: none; }
+#sheetview .gridbox.plain table.xl tbody td { cursor: default; user-select: text; }
 </style>
 </head>
 <body>
@@ -232,7 +236,7 @@ footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--rule);color:v
 
 <section class="card hidden" id="step3">
   <h2><span class="n">3</span>빈 양식 확인</h2>
-  <p class="lead">색칠된 범위가 맞는지 보세요. 틀렸다면 아래 버튼 중 하나를 고른 뒤, 표 왼쪽 <b>행 번호를 마우스로 끌어서</b> 다시 칠하면 됩니다.</p>
+  <p class="lead">색칠된 범위가 맞는지 보세요. 틀렸다면 아래 버튼 중 하나를 고른 뒤, 표에서 <b>행 번호나 그 줄을 마우스로 끌어서</b> 다시 칠하면 됩니다.</p>
   <div class="sheetbar" id="sheetbar"></div>
   <div id="sheetview"></div>
 </section>
@@ -474,6 +478,42 @@ var ENGINE = (function () {
     if (sheetCache) { if (!memo) { memo = {}; sheetCache.set(wb, memo); } memo[name] = hit; }
     return hit ? wb.Sheets[hit] : null;
   }
+  // 학교가 보낸 시트 이름별로 결과 시트를 따로 만듦
+  //  - 양식과 같은 이름으로 보낸 학교가 있으면 그 묶음이 양식 시트 자리에 들어가고, 없으면 가장 많이 쓴 이름이 그 자리에 들어감
+  //  - 엑셀에 쓸 수 없는 이름이거나 다른 시트 이름과 겹치면 첫 묶음에 합침
+  var BAD_SHEET = /[\[\]:*?\/\\]/;
+  function nameFromSchools(cfg, tplWb, files, results, usedOut) {
+    var order = [], cnt = {};
+    files.forEach(function (f, i) {
+      var m = matchedSheetName(f.wb, cfg.name, cfg.idx);
+      results[i].sheetOf = results[i].sheetOf || {};
+      results[i].sheetOf[cfg.name] = m;
+      if (!m) return;
+      if (!cnt[m]) { cnt[m] = 0; order.push(m); }
+      cnt[m]++;
+    });
+    cfg.matchedNames = order.filter(function (m) { return m !== cfg.name; });
+    var first = cnt[cfg.name] ? cfg.name : (order.slice().sort(function (a, b) { return cnt[b] - cnt[a]; })[0] || cfg.name);
+    var others = (tplWb ? tplWb.SheetNames : []).filter(function (n) { return n !== cfg.name; }).map(function (n) { return n.toLowerCase(); });
+    var ok = function (m) { return m === cfg.name || (m.length <= 31 && !BAD_SHEET.test(m) && others.indexOf(m.toLowerCase()) < 0 && !usedOut[m.toLowerCase()]); };
+    if (!ok(first)) first = cfg.name;
+    var groups = [{ name: first, members: [first], count: cnt[first] || 0 }];
+    usedOut[first.toLowerCase()] = true;
+    order.forEach(function (m) {
+      if (m === first) return;
+      if (ok(m)) { groups.push({ name: m, members: [m], count: cnt[m] }); usedOut[m.toLowerCase()] = true; }
+      else { groups[0].members.push(m); groups[0].count += cnt[m]; }
+    });
+    cfg.groups = groups;
+    cfg.outName = first;
+  }
+  function inGroup(res, cfg, g) {
+    if (!cfg.groups || cfg.groups.length < 2) return true;
+    var m = res.sheetOf ? res.sheetOf[cfg.name] : null;
+    return g.members.indexOf(m) >= 0;
+  }
+  function groupsOf(cfg) { return cfg.groups && cfg.groups.length ? cfg.groups : [{ name: cfg.outName || cfg.name, members: [] }]; }
+
   function matchedSheetName(wb, name, idx) {
     var ws = findSheet(wb, name, idx);
     if (!ws) return null;
@@ -817,23 +857,15 @@ var ENGINE = (function () {
       return { file: f.name, school: '', issues: [], infos: [], rows: {}, counts: {}, offsets: {}, excluded: {}, status: '정상' };
     });
 
+    var usedOut = {};
     cfgs.forEach(function (cfg) {
       if (!cfg.include) return;
+      nameFromSchools(cfg, tplWb, files, results, usedOut);
       if (cfg.mode === 'card') { mergeCard(cfg, tplWb, files, results); return; }
       var tplWs = tplWb ? findSheet(tplWb, cfg.name, cfg.idx) : null;
       if (!tplWs) return;
       var wsList = files.map(function (f) { return findSheet(f.wb, cfg.name, cfg.idx); });
       cfg.refSig = headerSig(tplWs, cfg);
-      var mn = {};
-      files.forEach(function (f, i) {
-        var m = matchedSheetName(f.wb, cfg.name, cfg.idx);
-        if (m && m !== cfg.name) {
-          mn[m] = 1;
-          // 결과 시트 이름은 양식 그대로 두고, 다른 이름으로 보낸 학교만 알려 줌 (옛 양식일 수 있음)
-          results[i].issues.push({ t: '시트 이름이 양식과 다름', a: '「' + m + '」 시트로 보냈습니다 (양식: 「' + cfg.name + '」). 옛 양식으로 보낸 것은 아닌지 확인하세요.' });
-        }
-      });
-      cfg.matchedNames = Object.keys(mn);
 
       // 예시 줄 정보
       var exInfo = { rows: {}, sigs: {}, cols: {}, count: 0 };
@@ -1133,8 +1165,10 @@ var ENGINE = (function () {
     sum.sheets.forEach(function (cfg) {
       if (cfg.mode !== 'card') return;
       any = true;
+      groupsOf(cfg).forEach(function (g) {
       var aoa = [['제출파일', '기관명'].concat(cfg.cardLabels || [])];
       sum.results.forEach(function (r) {
+        if (!inGroup(r, cfg, g)) return;
         if (!r.card || !r.card[cfg.name] || !r.counts[cfg.name]) return;
         aoa.push([r.file, r.school].concat(r.card[cfg.name].map(function (x) {
           if (!x) return '';
@@ -1145,7 +1179,8 @@ var ENGINE = (function () {
       });
       var ws = XLSX.utils.aoa_to_sheet(aoa);
       ws['!cols'] = [{ wch: 28 }, { wch: 16 }].concat((cfg.cardLabels || []).map(function () { return { wch: 16 }; }));
-      XLSX.utils.book_append_sheet(wb, ws, safeName(cfg.name, used));
+      XLSX.utils.book_append_sheet(wb, ws, safeName(g.name, used));
+      });
     });
     return any ? wb : null;
   }
@@ -1184,6 +1219,7 @@ var ENGINE = (function () {
       var tplWs = sum.tplWb ? findSheet(sum.tplWb, cfg.name, cfg.idx) : null;
       var ref = tplWs;
       if (!ref) sum.files.some(function (f) { var w = findSheet(f.wb, cfg.name, cfg.idx); if (w) { ref = w; return true; } return false; });
+      groupsOf(cfg).forEach(function (g) {
       var ws = {}, merges = [], top = cfg.he;   // 양식의 1행 ~ 제목 끝 행을 그대로 유지
       for (var r = 0; r <= top; r++) for (var c = 0; c <= cfg.lastCol; c++) {
         var x = get(ref, r, c);
@@ -1196,6 +1232,7 @@ var ENGINE = (function () {
       ws[A(labRow, fileCol)] = { t: 's', v: '제출파일' };
       var out = top + 1;
       sum.results.forEach(function (res) {
+        if (!inGroup(res, cfg, g)) return;
         var dStart = cfg.ds + (res.offsets[cfg.name] || 0), rmap = {};
         (res.rows[cfg.name] || []).forEach(function (row, k) { if (row.srcRow != null) rmap[row.srcRow + 1] = out + k + 1; });
         (res.rows[cfg.name] || []).forEach(function (row) {
@@ -1215,7 +1252,8 @@ var ENGINE = (function () {
       ws['!merges'] = merges;
       if (ref['!cols']) ws['!cols'] = ref['!cols'].slice(0, fileCol).concat([{ wch: 26 }]);
       if (ref['!rows']) ws['!rows'] = ref['!rows'].slice(0, top + 1);
-      XLSX.utils.book_append_sheet(wb, ws, safeName(cfg.name, used));
+      XLSX.utils.book_append_sheet(wb, ws, safeName(g.name, used));
+      });
     });
     return wb;
   }
@@ -1424,6 +1462,106 @@ var STYLED = (function () {
     return xml;
   }
 
+  /* 시트 이름 바꾸기 (결과 파일) */
+  function xEsc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function reEsc(t) { return t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function quotedRef(n) { return "'" + n.replace(/'/g, "''") + "'!"; }
+  // 한글 등을 &#54617; 같은 숫자 코드로 저장한 파일도 있어 글자로 풀어 둠 (XML 특수문자는 그대로)
+  function decNum(x) {
+    return x.replace(/&#(x[0-9a-fA-F]+|\d+);/g, function (m, n) {
+      var cp = n[0] === 'x' ? parseInt(n.slice(1), 16) : +n;
+      return cp > 127 ? String.fromCodePoint(cp) : m;
+    });
+  }
+  function swapRefs(xml, ren) {
+    xml = decNum(xml);
+    ren.forEach(function (p) {
+      var o = xEsc(quotedRef(p[0])), n = xEsc(quotedRef(p[1]));
+      xml = xml.split(o).join(n);
+      xml = xml.split(o.replace(/'/g, '&apos;')).join(n);
+      // 따옴표 없이 쓴 참조 (예: 조사표!A1)
+      xml = xml.replace(new RegExp('(^|[^A-Za-z0-9_.\'\u3131-\uD7A3])' + reEsc(xEsc(p[0])) + '!', 'g'), function (_, pre) { return pre + n; });
+    });
+    return xml;
+  }
+  function renameInWorkbookXml(w, ren) {
+    if (!ren.length) return w;
+    w = decNum(w);
+    w = w.replace(/<sheet\b[^>]*>/g, function (tag) {
+      ren.forEach(function (p) {
+        var a = 'name="' + xEsc(p[0]) + '"';
+        if (tag.indexOf(a) >= 0) tag = tag.replace(a, 'name="' + xEsc(p[1]) + '"');
+      });
+      return tag;
+    });
+    return swapRefs(w, ren);
+  }
+  function renameSheetsInZip(zip, ren) {
+    var jobs = [];
+    zip.file(/^xl\/.+\.xml$/).forEach(function (f) {
+      if (f.name === 'xl/workbook.xml' || f.name === 'xl/sharedStrings.xml' || /^xl\/(styles|theme)/.test(f.name)) return;   // 칸 글자·서식은 건드리지 않음
+      jobs.push(f.async('string').then(function (x) {
+        var y = swapRefs(x, ren);
+        if (y !== x) zip.file(f.name, y);
+      }));
+    });
+    var app = zip.file('docProps/app.xml');
+    if (app) jobs.push(app.async('string').then(function (x) {
+      ren.forEach(function (p) { x = x.split('<vt:lpstr>' + xEsc(p[0]) + '</vt:lpstr>').join('<vt:lpstr>' + xEsc(p[1]) + '</vt:lpstr>'); });
+      zip.file('docProps/app.xml', x);
+    }));
+    return Promise.all(jobs);
+  }
+
+  // 복제한 시트에서 다른 파일(그림·표·메모 등)을 가리키는 부분은 뺌
+  function cloneSheetXml(x) {
+    x = x.replace(/<(drawing|legacyDrawing|legacyDrawingHF|picture)\b[^>]*\/>/g, '');
+    x = x.replace(/<(tableParts|oleObjects|controls|hyperlinks)\b[^>]*\/>/g, '');
+    x = x.replace(/<(tableParts|oleObjects|controls|hyperlinks)\b[\s\S]*?<\/\1>/g, '');
+    x = x.replace(/\s+r:id="[^"]*"/g, '');
+    x = x.replace(/\s+tabSelected="1"/g, '');
+    return x;
+  }
+  // 복제 시트 파일 추가: 시트 XML, workbook 관계, 콘텐츠 형식
+  function addExtraParts(zip, extras) {
+    if (!extras.length) return Promise.resolve();
+    var max = 0;
+    zip.file(/^xl\/worksheets\/sheet\d+\.xml$/).forEach(function (f) { max = Math.max(max, +f.name.match(/(\d+)\.xml$/)[1]); });
+    extras.forEach(function (e, i) {
+      e.file = 'sheet' + (max + i + 1) + '.xml';
+      e.rid = 'rIdSeomu' + (i + 1);
+      zip.file('xl/worksheets/' + e.file, e.xml);
+    });
+    return zip.file('xl/_rels/workbook.xml.rels').async('string').then(function (rel) {
+      var add = extras.map(function (e) { return '<Relationship Id="' + e.rid + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/' + e.file + '"/>'; }).join('');
+      zip.file('xl/_rels/workbook.xml.rels', rel.replace('</Relationships>', add + '</Relationships>'));
+      return zip.file('[Content_Types].xml').async('string');
+    }).then(function (ct) {
+      var add = extras.map(function (e) { return '<Override PartName="/xl/worksheets/' + e.file + '" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'; }).join('');
+      zip.file('[Content_Types].xml', ct.replace('</Types>', add + '</Types>'));
+    });
+  }
+  // workbook.xml에 복제 시트를 원래 시트 바로 뒤에 넣고, 시트 순서를 쓰는 값(인쇄 영역 등)을 한 칸씩 밀어 줌
+  function insertSheetTags(w, extras) {
+    if (extras.length) w = decNum(w);
+    extras.forEach(function (e) {
+      var tags = w.match(/<sheet\b[^>]*\/?>/g) || [];
+      var idx = -1, maxId = 0;
+      tags.forEach(function (t, i) {
+        maxId = Math.max(maxId, +(t.match(/sheetId="(\d+)"/) || [0, 0])[1]);
+        if (t.indexOf('name="' + xEsc(e.after) + '"') >= 0) idx = i;
+      });
+      if (idx < 0) idx = tags.length - 1;
+      var tag = '<sheet xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" name="' + xEsc(e.name) + '" sheetId="' + (maxId + 1) + '" r:id="' + e.rid + '"/>';
+      var at = w.indexOf(tags[idx]) + tags[idx].length;
+      w = w.slice(0, at) + tag + w.slice(at);
+      var pos = idx + 1;
+      w = w.replace(/localSheetId="(\d+)"/g, function (m, n) { return +n >= pos ? 'localSheetId="' + (+n + 1) + '"' : m; });
+      w = w.replace(/\b(activeTab|firstSheet)="(\d+)"/g, function (m, k, n) { return +n >= pos ? k + '="' + (+n + 1) + '"' : m; });
+    });
+    return w;
+  }
+
   /* 빈 양식 파일(ArrayBuffer)에 취합 결과를 채워 넣어 새 파일 만들기 */
   function build(tplBuf, sum, JSZipLib, opts) {
     return JSZipLib.loadAsync(tplBuf).then(function (zip) {
@@ -1436,24 +1574,37 @@ var STYLED = (function () {
             return { name: attr(s.head, 'name'), path: 'xl/' + t.replace(/^\/?xl\//, '').replace(/^\//, '') };
           });
 
-          var chain = Promise.resolve();
+          var chain = Promise.resolve(), ren = [], extras = [];
           sum.sheets.forEach(function (cfg) {
             var sh = null;
             sheets.forEach(function (s) { if (s.name === cfg.name) sh = s; });
             if (!sh) sh = sheets[cfg.idx];
             if (!sh || !zip.file(sh.path)) return;
-            var blocks = sum.results.map(function (r) { return { file: r.file, rows: r.rows[cfg.name] || [], dataStart: cfg.ds + (r.offsets[cfg.name] || 0) }; })
-              .filter(function (b) { return b.rows.length; });
+            var groups = (cfg.groups && cfg.groups.length) ? cfg.groups : [{ name: cfg.name, members: [] }];
+            var blocksOf = function (g) {
+              return sum.results.filter(function (r) {
+                if (groups.length < 2) return true;
+                return g.members.indexOf(r.sheetOf ? r.sheetOf[cfg.name] : null) >= 0;
+              }).map(function (r) { return { file: r.file, rows: r.rows[cfg.name] || [], dataStart: cfg.ds + (r.offsets[cfg.name] || 0) }; })
+                .filter(function (b) { return b.rows.length; });
+            };
+            if (groups[0].name !== cfg.name) ren.push([cfg.name, groups[0].name]);
             chain = chain.then(function () {
               return zip.file(sh.path).async('string').then(function (xml) {
-                zip.file(sh.path, rewriteSheet(xml, cfg, blocks, opts && opts.remap));
+                zip.file(sh.path, rewriteSheet(xml, cfg, blocksOf(groups[0]), opts && opts.remap));
+                for (var k = 1; k < groups.length; k++) {
+                  extras.push({ after: groups[k - 1].name, name: groups[k].name, xml: cloneSheetXml(rewriteSheet(xml, cfg, blocksOf(groups[k]), opts && opts.remap)) });
+                }
               });
             });
           });
 
+          if (ren.length) chain = chain.then(function () { return renameSheetsInZip(zip, ren); });
+          chain = chain.then(function () { return addExtraParts(zip, extras); });
+
           return chain.then(function () {
             zip.remove('xl/calcChain.xml');
-            var w = wbXml;
+            var w = insertSheetTags(renameInWorkbookXml(wbXml, ren), extras);
             if (/<calcPr[^>]*\/>/.test(w)) w = w.replace(/<calcPr[^>]*\/>/, '<calcPr fullCalcOnLoad="1"/>');
             else w = w.replace('</workbook>', '<calcPr fullCalcOnLoad="1"/></workbook>');
             zip.file('xl/workbook.xml', w);
@@ -1687,6 +1838,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
         '<span class="t-ex">■ <b>예시 줄</b> ' + ((c.ex || []).length ? ranges(c.ex) + ' (취합 안 함)' : '없음') + '</span>' +
         (c.schoolCols && c.schoolCols.length ? '<span>학교명 칸: ' + c.schoolCols.map(ENGINE.colName).join(', ') + '열</span>' : '') +
         (c.matchedNames && c.matchedNames.length ? '<span>학교 파일의 「' + esc(c.matchedNames.join('」, 「')) + '」 시트와 맞춤</span>' : '') +
+        (c.groups && (c.groups.length > 1 || c.groups[0].name !== c.name) ? '<span>결과 시트: ' + c.groups.map(function (g) { return '<b>「' + esc(g.name) + '」</b> ' + g.count + '곳'; }).join(', ') + ' (학교가 보낸 시트 이름대로)</span>' : '') +
         '</div>';
       brushes = '<div class="brushbar">' +
         '<span class="lbl">고칠 범위 고르기</span>' +
@@ -1702,7 +1854,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
         '<label class="cardmode"><input type="checkbox" data-card="1" checked> 표가 아닌 서식 (세로형)</label>' +
         '<button type="button" class="plain" data-reset="1">처음 상태로</button></div>';
     }
-    var hint = card ? '' : '<div class="hint">예) 제목이 한 줄 모자라면 <b>제목 줄</b>을 누르고 행 번호 4에서 6까지 끌어 놓으세요. 예시 줄은 누를 때마다 켜지고 꺼집니다.</div>';
+    var hint = card ? '' : '<div class="hint">예) 제목이 한 줄 모자라면 <b>제목 줄</b>을 누르고 4행에서 6행까지 끌어 놓으세요 (행 번호나 줄 아무 곳). 예시 줄은 누를 때마다 켜지고 꺼집니다.</div>';
 
     var rows = ENGINE.gridData(ws, 0, viewRows, viewCols);
     var h = '<table class="xl" id="xl"><thead><tr><th class="rn"></th>';
@@ -1763,7 +1915,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
   }
 
   $('sheetview').addEventListener('pointerdown', function (e) {
-    var td = e.target.closest ? e.target.closest('#xl tbody td.rn') : null;
+    var td = e.target.closest ? e.target.closest('#xl tbody td') : null;
     if (!td) return;
     var c = cfgOf(activeSheet); if (!c || c.mode === 'card') return;
     e.preventDefault();

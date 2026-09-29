@@ -45,6 +45,8 @@
     color: inherit;
   }
   .side .brand strong { font-size: 1.05rem; color: var(--navy); }
+  .kicker { display: block; margin: 0 0 2px; font-size: 0.78rem; color: var(--muted); letter-spacing: 0.04em; }
+  .home .kicker { margin-bottom: 4px; }
   .side nav { padding: 8px 0 16px; flex: 1; }
   .side .group {
     margin: 16px 18px 4px;
@@ -284,6 +286,7 @@
 <body>
 <aside class="side">
   <a class="brand" href="#">
+    <small class="kicker">교육청</small>
     <strong>업무 자동화 도구모음</strong>
   </a>
   <nav aria-label="도구">
@@ -343,6 +346,7 @@
   <section class="home" id="home">
     <div class="wrap">
       <header>
+        <p class="kicker">교육청</p>
         <h1>업무 자동화 도구모음</h1>
         <p class="lead">메뉴에서 도구를 고르세요. 설치 없이 브라우저에서 바로 실행되고, 넣으신 자료는 이 PC 밖으로 나가지 않습니다.</p>
         <ol class="howto">
@@ -550,7 +554,7 @@
   });
 
   (function () {
-    var VERSION = '1.0.4';  // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var VERSION = '1.0.5';  // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
       'overtime-missing': '초과근무 미입력 찾기',
