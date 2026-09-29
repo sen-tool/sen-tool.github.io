@@ -1,93 +1,53 @@
-# 교육청 서무 비서
+# 업무 자동화 도구모음
 
+교육지원청 서무·시설 업무에서 매달 반복되는 엑셀 작업을 **설치 없이 HTML 파일 하나로** 처리하는 도구 5종입니다.
+넣으신 자료는 이 PC 밖으로 나가지 않습니다. (공사대장만 조회할 때 조달청 서버 `apis.data.go.kr`에 접속합니다)
 
+## 도구 목록
 
-## Getting started
+| 도구 | 파일 | 넣는 것 → 나오는 것 |
+|---|---|---|
+| 엑셀 취합기 | [tools/excel-merge.html](tools/excel-merge.html) | 빈 양식 + 학교에서 받은 엑셀들 → 양식 서식 그대로 취합 파일 |
+| 특근매식비 내역서 만들기 | [tools/overtime-meal.html](tools/overtime-meal.html) | 나이스 초과근무확인목록 → 제출용 내역서 4개 시트 |
+| 초과근무 미입력 찾기 | [tools/overtime-missing.html](tools/overtime-missing.html) | 나이스 목록 + 지문 기록 → 나이스에 넣을 시각 |
+| 관내출장여비 지급내역 만들기 | [tools/local-travel.html](tools/local-travel.html) | 대상목록 + 지난달 파일 → 일반여비·요약 + 근거자료 |
+| 공사대장 만들기 | [tools/contract-ledger.html](tools/contract-ledger.html) | 인증키·기관코드·기간 → 계약 21개 항목 엑셀 |
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+시험해 볼 자료: [samples/시험용_초과근무확인목록.xlsx](samples/시험용_초과근무확인목록.xlsx) (가짜 이름으로 만든 자료)
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+배포용 안내문(메일·메신저 문구, 도구별 사용법): [docs/안내문.md](docs/안내문.md)
 
-## Add your files
+## 쓰는 법
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+### 웹 주소로 쓰기
 
-```
-cd existing_repo
-git remote add origin https://gitlab.aigov.go.kr/hdg100/seomu.git
-git branch -M main
-git push -uf origin main
-```
+- 주소: `[Pages 주소 확정 후 기입]`
+- 첫 화면에서 도구를 골라 「열기」를 누르면 됩니다.
 
-## Integrate with your tools
+### 파일로 내려받아 쓰기 (업무망 등 웹 주소가 안 열릴 때)
 
-* [Set up project integrations](https://gitlab.aigov.go.kr/hdg100/seomu/-/settings/integrations)
+1. 위 도구 목록에서 필요한 파일을 누릅니다.
+2. 오른쪽 위 **내려받기(⤓)** 버튼으로 `.html` 파일을 저장합니다.
+3. 저장한 파일을 더블클릭하면 인터넷 창에서 바로 열립니다. 설치할 것은 없습니다.
 
-## Collaborate with your team
+### 공통 순서
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+1. 도구를 엽니다.
+2. 준비한 엑셀 파일을 화면에 끌어 놓습니다.
+3. 화면에서 결과를 확인한 뒤 「엑셀 파일로 내려받기」를 누릅니다.
 
-## Test and Deploy
+## 주의사항
 
-Use the built-in continuous integration in GitLab.
+- **결과는 반드시 확인 후 사용하세요.** 처음 한두 달은 기존 방식과 대조해 보시기 바랍니다.
+- **공사대장 만들기**는 공공데이터포털 인증키가 필요합니다.
+  - `조달청_나라장터 계약정보서비스` 활용신청 → 마이페이지 > 데이터활용 > Open API > 인증키
+  - **일반 인증키(Decoding)** 를 쓰세요. `Encoding` 키(% 기호가 섞인 것)는 인증 오류가 납니다.
+  - 「이 브라우저에 저장하기」는 공용 PC에서 켜지 마세요.
+  - 기관 방화벽 때문에 조회가 안 되면, 접속되는 PC에서 조회한 뒤 엑셀만 옮겨 쓰세요.
+- 인증키가 들어간 파일(`공사대장_조회도구_*.html`, `공사대장_자동_*.html`)은 이 저장소에 올리지 않습니다.
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+## 만든 이 · 의견
 
-***
+개인이 만든 비공식 업무 보조 도구입니다. 기관이나 부서의 공식 도구가 아닙니다.
 
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+안 되는 부분이나 바라는 점은 메일로 알려 주세요: hdg100 [at] sen.go.kr

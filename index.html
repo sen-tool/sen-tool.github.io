@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>업무 자동화 도구모음</title>
+<style>
+  :root {
+    --bg: #f7f6f2;
+    --card: #ffffff;
+    --ink: #2b3137;
+    --sub: #5f6b73;
+    --muted: #8a9299;
+    --line: #e3e0d9;
+    --paper: #f1efe9;
+    --navy: #2f5d8f;
+    --accent: #3a6ea5;
+    --navy-soft: #edf2f8;
+    --side-w: 232px;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "Malgun Gothic", "맑은 고딕", sans-serif;
+    line-height: 1.6;
+  }
+
+  /* 왼쪽 메뉴 */
+  .side {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: var(--side-w);
+    background: var(--paper);
+    border-right: 1px solid var(--line);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+  .side .brand {
+    display: block;
+    padding: 20px 18px 16px;
+    border-bottom: 1px solid var(--line);
+    text-decoration: none;
+    color: inherit;
+  }
+  .side .brand strong { font-size: 1.05rem; color: var(--navy); }
+  .side nav { padding: 8px 0 16px; flex: 1; }
+  .side .group {
+    margin: 16px 18px 4px;
+    font-size: 0.75rem;
+    color: var(--muted);
+    letter-spacing: 0.02em;
+  }
+  .side nav a {
+    display: block;
+    padding: 7px 18px 7px 15px;
+    border-left: 3px solid transparent;
+    color: var(--ink);
+    text-decoration: none;
+    font-size: 0.92rem;
+  }
+  .side nav a:hover { background: #e9e6df; }
+  .side nav a.on {
+    border-left-color: var(--accent);
+    background: var(--card);
+    color: var(--navy);
+    font-weight: bold;
+  }
+  .side nav a .tag { font-size: 0.72rem; color: #b0632a; font-weight: normal; margin-left: 4px; }
+  .side .foot {
+    padding: 12px 18px 16px;
+    border-top: 1px solid var(--line);
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  /* 오른쪽 본문 */
+  .main { margin-left: var(--side-w); min-height: 100%; }
+
+  /* 도구 화면 */
+  .viewer { display: none; height: 100vh; flex-direction: column; }
+  .viewer.on { display: flex; }
+  .viewer .bar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 8px 16px;
+    background: var(--card);
+    border-bottom: 1px solid var(--line);
+    font-size: 0.85rem;
+    color: var(--sub);
+  }
+  .viewer .bar b { color: var(--ink); font-size: 0.95rem; margin-right: auto; }
+  .viewer .bar a { color: var(--navy); white-space: nowrap; }
+  .viewer iframe { flex: 1; width: 100%; border: 0; background: var(--bg); }
+
+  /* 첫 화면 */
+  .home { display: none; }
+  .home.on { display: block; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  .home header { padding: 36px 0 12px; }
+  .home h1 { font-size: 1.7rem; margin: 0 0 10px; color: var(--navy); letter-spacing: -0.01em; }
+  .home .lead { margin: 0; color: var(--sub); }
+  .howto {
+    display: flex; flex-wrap: wrap; gap: 8px 24px;
+    margin: 18px 0 0; padding: 0; list-style: none;
+    font-size: 0.9rem; color: var(--sub);
+    counter-reset: step;
+  }
+  .howto li::before {
+    counter-increment: step;
+    content: counter(step);
+    display: inline-block;
+    width: 20px; height: 20px; margin-right: 6px;
+    border: 1px solid var(--navy); border-radius: 50%;
+    text-align: center; line-height: 18px;
+    font-size: 0.75rem; color: var(--navy);
+  }
+
+  .list { margin: 8px 0 0; }
+  .tool {
+    margin-top: 12px;
+    padding: 18px 20px 20px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .tool h3 { font-size: 1.02rem; margin: 0; }
+  .tool h3 a { color: var(--navy); text-decoration: none; }
+  .tool h3 a:hover { text-decoration: underline; }
+  .tool h3 a::after { content: " ›"; color: var(--muted); }
+
+  /* 결과 예시 (엑셀 모양) */
+  .preview { margin-top: 12px; }
+  .preview summary {
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--navy);
+    width: fit-content;
+  }
+  .preview .cap { margin: 8px 0 6px; font-size: 0.8rem; color: var(--muted); }
+  .preview .cap code { font-family: inherit; color: var(--sub); }
+  .xl {
+    border: 1px solid #d6d3cb;
+    background: #fff;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .xl .scroll { overflow-x: auto; }
+  .xl table { border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+  .xl th, .xl td {
+    border: 1px solid #d4d4d4;
+    padding: 3px 7px;
+    text-align: center;
+    font-weight: normal;
+  }
+  .xl .t { font-size: 14px; font-weight: bold; padding: 6px; }
+  .xl .l { text-align: left; }
+  .xl .r { text-align: right; }
+  .xl .b { font-weight: bold; }
+  .xl .gray { background: #d9d9d9; }
+  .xl .green { background: #ebf1de; }
+  .xl .sky { background: #99ccff; }
+  .xl .teal { background: #93cddd; }
+  .xl .navy { background: #2e5c8a; color: #fff; }
+  .xl .pick { background: #e8f4ff; color: #0b4c8c; font-weight: bold; }
+  .xl .hand { background: #fff4e6; color: #b45309; }
+  .xl .dim { color: #9aa1a8; }
+  .xl .tabs {
+    display: flex; gap: 2px;
+    padding: 0 6px;
+    background: #f3f2ee;
+    border-top: 1px solid #d6d3cb;
+    font-size: 11px;
+    overflow-x: auto;
+  }
+  .xl .tabs button {
+    font: inherit; font-size: 11px;
+    padding: 4px 10px;
+    border: 0; border-bottom: 2px solid transparent;
+    background: transparent; color: var(--sub);
+    white-space: nowrap; cursor: pointer;
+  }
+  .xl .tabs button:hover { background: #e9e7e1; }
+  .xl .tabs button.on { background: #fff; color: #1e7145; font-weight: bold; border-bottom-color: #1e7145; }
+  .xl .sheet[hidden] { display: none; }
+  .xl .sheet-note { margin: 0; padding: 18px 16px; font-size: 0.85rem; color: var(--sub); background: #fbfaf7; }
+  .tiles { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  .tiles span {
+    padding: 3px 10px;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--card);
+    font-size: 0.8rem;
+    color: var(--sub);
+  }
+  .tiles b { color: var(--ink); }
+  .tool .desc { margin: 2px 0 8px; color: var(--sub); font-size: 0.9rem; }
+  .io { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font-size: 0.84rem; }
+  .io .in, .io .out { padding: 2px 8px; background: var(--bg); border: 1px solid var(--line); border-radius: 4px; }
+  .io .arrow { color: var(--muted); }
+  .io .net { margin-left: 4px; font-size: 0.8rem; color: var(--muted); }
+  .io .net.online { color: #b0632a; }
+
+  .note {
+    margin: 28px 0 0;
+    padding: 14px 16px;
+    background: var(--navy-soft);
+    border-left: 4px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    font-size: 0.88rem;
+  }
+  .note p { margin: 0 0 6px; }
+  .note p:last-child { margin: 0; }
+  .home footer { margin: 24px 0 40px; font-size: 0.85rem; color: var(--muted); }
+  .home footer a { color: var(--navy); }
+
+  /* 의견 보내기 */
+  .fb {
+    margin-top: 12px;
+    padding: 20px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+  }
+  .fb-to { margin: 0 0 14px; color: var(--sub); }
+  .fb-to b { color: var(--ink); margin: 0 6px; }
+  .fb-to button {
+    font: inherit; font-size: 0.8rem;
+    padding: 2px 10px;
+    border: 1px solid var(--line); border-radius: 4px;
+    background: var(--bg); color: var(--navy); cursor: pointer;
+  }
+  .fb-send {
+    display: inline-block;
+    padding: 10px 20px;
+    background: var(--accent);
+    color: #fff;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: bold;
+  }
+  .fb-send:hover { background: var(--navy); }
+  .fb-hint { margin: 10px 0 0; font-size: 0.85rem; color: var(--muted); }
+  .fb-h { font-size: 1rem; color: var(--navy); margin: 28px 0 8px; }
+  .fb-tpl {
+    margin: 0;
+    padding: 14px 16px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.9rem;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    color: var(--sub);
+  }
+
+  /* 좁은 화면: 메뉴를 위로 */
+  @media (max-width: 760px) {
+    .side {
+      position: static; width: auto; height: auto;
+      border-right: 0; border-bottom: 1px solid var(--line);
+    }
+    .side .brand { padding: 14px 16px 10px; }
+    .side nav {
+      display: flex; overflow-x: auto; padding: 0;
+    }
+    .side .group, .side .foot { display: none; }
+    .side nav a {
+      flex-shrink: 0;
+      border-left: 0; border-bottom: 3px solid transparent;
+      padding: 10px 14px;
+    }
+    .side nav a.on { border-bottom-color: var(--navy); background: transparent; }
+    .main { margin-left: 0; }
+    .viewer { height: calc(100vh - 110px); }
+    .viewer .bar { flex-wrap: wrap; gap: 6px 12px; }
+    .viewer .bar b { flex-basis: 100%; }
+    .wrap { padding: 0 16px; }
+    .home header { padding-top: 20px; }
+  }
+</style>
+</head>
+<body>
+<aside class="side">
+  <a class="brand" href="#">
+    <strong>업무 자동화 도구모음</strong>
+  </a>
+  <nav aria-label="도구">
+    <a href="#" data-id="">처음 화면</a>
+    <div class="group">복무 · 급여</div>
+    <a href="#overtime-meal" data-id="overtime-meal">특근매식비 내역서</a>
+    <a href="#overtime-missing" data-id="overtime-missing">초과근무 미입력 찾기</a>
+    <div class="group">여비</div>
+    <a href="#local-travel" data-id="local-travel">관내출장여비 지급내역</a>
+    <div class="group">자료 취합</div>
+    <a href="#excel-merge" data-id="excel-merge">엑셀 취합기</a>
+    <div class="group">계약 · 시설</div>
+    <a href="#contract-ledger" data-id="contract-ledger">공사대장 만들기<span class="tag">인터넷</span></a>
+    <div class="group">소통</div>
+    <a href="#feedback" data-id="feedback">의견·오류 보내기</a>
+  </nav>
+  <div class="foot">v1.0</div>
+</aside>
+
+<div class="main">
+  <section class="viewer" id="viewer">
+    <div class="bar">
+      <b id="viewer-title"></b>
+      <a id="viewer-pop" href="#" target="_blank" rel="noopener">새 창으로 열기 ↗</a>
+    </div>
+    <iframe id="viewer-frame" title="도구 화면"></iframe>
+  </section>
+
+  <section class="home" id="feedback-page">
+    <div class="wrap">
+      <header>
+        <h1>의견·오류 보내기</h1>
+        <p class="lead">안 되는 부분, 헷갈리는 부분, 있었으면 하는 기능을 알려 주세요. 받은 의견을 보고 도구를 고칩니다.</p>
+      </header>
+
+      <div class="fb">
+        <p class="fb-to">받는 곳 <b id="fb-mail" data-u="001gdh" data-d="rk.og.nes">(주소를 불러오는 중)</b> <button type="button" id="fb-copy">주소 복사</button></p>
+        <a class="fb-send" href="#feedback" data-q="subject=%5B%EC%97%85%EB%AC%B4%20%EC%9E%90%EB%8F%99%ED%99%94%20%EB%8F%84%EA%B5%AC%5D%20%EC%9D%98%EA%B2%AC%C2%B7%EC%98%A4%EB%A5%98&body=%E2%96%A0%20%EB%8F%84%EA%B5%AC%20%EC%9D%B4%EB%A6%84%3A%20%0A%E2%96%A0%20%ED%95%98%EB%A0%A4%EB%8D%98%20%EC%9D%BC%3A%20%0A%E2%96%A0%20%EC%83%9D%EA%B8%B4%20%EC%9D%BC%20%28%ED%99%94%EB%A9%B4%EC%97%90%20%EB%82%98%EC%98%A8%20%EB%A7%90%20%EA%B7%B8%EB%8C%80%EB%A1%9C%29%3A%20%0A%E2%96%A0%20%EB%84%A3%EC%9D%80%20%ED%8C%8C%EC%9D%BC%20%EC%A2%85%EB%A5%98%20%28%EC%98%88%3A%20%EB%82%98%EC%9D%B4%EC%8A%A4%20%EC%B4%88%EA%B3%BC%EA%B7%BC%EB%AC%B4%ED%99%95%EC%9D%B8%EB%AA%A9%EB%A1%9D%29%3A%20%0A%E2%96%A0%20%EB%B0%94%EB%9D%BC%EB%8A%94%20%EC%A0%90%3A%20%0A%0A%E2%80%BB%20%EA%B0%9C%EC%9D%B8%EC%A0%95%EB%B3%B4%EA%B0%80%20%EB%93%A0%20%ED%8C%8C%EC%9D%BC%EC%9D%80%20%EC%B2%A8%EB%B6%80%ED%95%98%EC%A7%80%20%EB%A7%88%EC%84%B8%EC%9A%94.%20%EA%BC%AD%20%ED%95%84%EC%9A%94%ED%95%98%EB%A9%B4%20%EC%9D%B4%EB%A6%84%C2%B7%EC%A3%BC%EB%AF%BC%EB%B2%88%ED%98%B8%20%EB%93%B1%EC%9D%84%20%EC%A7%80%EC%9A%B4%20%ED%8C%8C%EC%9D%BC%EB%A1%9C%20%EB%B3%B4%EB%82%B4%20%EC%A3%BC%EC%84%B8%EC%9A%94.">메일 쓰기 (양식이 채워진 채로 열립니다)</a>
+        <p class="fb-hint">메일 프로그램이 열리지 않으면 주소를 복사해 업무 메일로 보내 주세요.</p>
+      </div>
+
+      <h2 class="fb-h">이렇게 써 주시면 빨리 고칠 수 있어요</h2>
+      <pre class="fb-tpl">■ 도구 이름: 
+■ 하려던 일: 
+■ 생긴 일 (화면에 나온 말 그대로): 
+■ 넣은 파일 종류 (예: 나이스 초과근무확인목록): 
+■ 바라는 점: 
+
+※ 개인정보가 든 파일은 첨부하지 마세요. 꼭 필요하면 이름·주민번호 등을 지운 파일로 보내 주세요.</pre>
+
+      <div class="note">
+        <p><b>개인정보가 든 파일은 첨부하지 마세요.</b> 오류를 보여 주려고 파일이 꼭 필요하면 이름·생년월일·주민번호·계좌 등을 지우거나 가짜 값으로 바꾼 파일로 보내 주세요.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="home" id="home">
+    <div class="wrap">
+      <header>
+        <h1>업무 자동화 도구모음</h1>
+        <p class="lead">메뉴에서 도구를 고르세요. 설치 없이 브라우저에서 바로 실행되고, 넣으신 자료는 이 PC 밖으로 나가지 않습니다.</p>
+        <ol class="howto">
+          <li>도구 고르기</li>
+          <li>엑셀 파일 끌어 놓기</li>
+          <li>화면에서 확인 후 내려받기</li>
+        </ol>
+      </header>
+
+      <div class="list">
+        <div class="tool" data-id="overtime-meal">
+          <h3><a href="#overtime-meal">특근매식비 내역서 만들기</a></h3>
+          <p class="desc">나이스 초과근무 자료로 제출용 내역서를 만듭니다.</p>
+          <p class="io"><span class="in">나이스 초과근무확인목록</span><span class="arrow">→</span><span class="out">제출용 내역서 4개 시트</span><span class="net">· 인터넷 불필요</span></p>
+          <details class="preview" open>
+            <summary>결과 예시</summary>
+            <p class="cap"><code>2026년 7월 특근매식비 내역.xlsx</code> · 가상 자료</p>
+            <div class="xl">
+              <div class="sheet">
+                <div class="scroll"><table>
+                  <tr><td class="t" colspan="16">2026년 7월 특근 매식비 내역서</td></tr>
+                  <tr><th>일자 / 성명</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th class="dim">…</th><th>10</th><th class="dim">…</th><th>20</th><th class="dim">…</th><th>30</th><th>31</th><th class="green">일수</th><th class="green">단가</th><th class="green">급량비</th></tr>
+                  <tr><td>홍길동</td><td>0</td><td>0</td><td></td><td></td><td></td><td class="dim">…</td><td></td><td class="dim">…</td><td></td><td class="dim">…</td><td></td><td></td><td>2</td><td class="r">9,000</td><td class="r">18,000</td></tr>
+                  <tr><td>김철수</td><td>0</td><td></td><td></td><td></td><td></td><td class="dim">…</td><td></td><td class="dim">…</td><td></td><td class="dim">…</td><td></td><td>0</td><td>2</td><td class="r">9,000</td><td class="r">18,000</td></tr>
+                  <tr><td>이영희</td><td></td><td></td><td></td><td></td><td></td><td class="dim">…</td><td>0</td><td class="dim">…</td><td>0</td><td class="dim">…</td><td></td><td></td><td>2</td><td class="r">9,000</td><td class="r">18,000</td></tr>
+                  <tr class="b"><td class="green">합  계</td><td class="green">2</td><td class="green">1</td><td class="green">0</td><td class="green">0</td><td class="green">0</td><td class="green dim">…</td><td class="green">1</td><td class="green dim">…</td><td class="green">1</td><td class="green dim">…</td><td class="green">0</td><td class="green">1</td><td class="green">6</td><td class="green"></td><td class="green r">54,000</td></tr>
+                </table></div>
+              </div>
+              <div class="sheet" hidden>
+                <div class="scroll"><table>
+                  <tr><th rowspan="2">순번</th><th rowspan="2">부서명</th><th rowspan="2">직급</th><th rowspan="2">성명</th><th rowspan="2">초과근무<br>일자</th><th colspan="3">실제초과 근무시간</th></tr>
+                  <tr><th>시작 시간</th><th>종료 시간</th><th>시간합</th></tr>
+                  <tr><td>1</td><td>○○교육지원청 시설과</td><td>7급</td><td>홍길동(900421)</td><td>2026-07-01</td><td>18:00</td><td>19:30</td><td>01:30</td></tr>
+                  <tr><td>2</td><td>○○교육지원청 시설과</td><td>7급</td><td>홍길동(900421)</td><td>2026-07-02</td><td>18:00</td><td>18:40</td><td>00:40</td></tr>
+                  <tr><td>3</td><td>○○교육지원청 시설과</td><td>7급</td><td>홍길동(900421)</td><td>2026-07-02</td><td>19:00</td><td>19:50</td><td>00:50</td></tr>
+                  <tr><td>4</td><td>○○교육지원청 시설과</td><td>7급</td><td>홍길동(900421)</td><td>2026-07-03</td><td>18:00</td><td>18:30</td><td>00:30</td></tr>
+                  <tr><td>5</td><td>○○교육지원청 시설과</td><td>7급</td><td>김철수(880315)</td><td>2026-07-01</td><td>18:00</td><td>20:00</td><td>02:00</td></tr>
+                  <tr><td class="dim">…</td><td class="dim l" colspan="7">나이스에서 받은 목록이 서식 그대로 들어갑니다 (근거자료)</td></tr>
+                </table></div>
+              </div>
+              <div class="sheet" hidden>
+                <p class="sheet-note"><b>나이스 초과근무 확인대장</b>을 함께 넣었을 때만 생기는 시트입니다. 넣은 대장이 서식 그대로 붙어 근거자료가 됩니다.</p>
+              </div>
+              <div class="sheet" hidden>
+                <div class="scroll"><table>
+                  <tr><td class="t l" colspan="7">검증표 (제출용 아님)</td></tr>
+                  <tr><td class="l" colspan="7">대상 2026년 7월 · 판정방식 하루 합계 기준 · 기준 1시간 · 단가 9,000원 · 합계 6건 54,000원</td></tr>
+                  <tr><th>성명</th><th>일자</th><th>줄수</th><th>최장 줄</th><th>합계</th><th>지급</th><th>비고</th></tr>
+                  <tr><td>홍길동</td><td>07-01</td><td>1</td><td>01:30</td><td>01:30</td><td class="b">O</td><td class="l dim"></td></tr>
+                  <tr><td>홍길동</td><td>07-02</td><td>2</td><td>00:50</td><td>01:30</td><td class="b">O</td><td class="l dim">두 줄 합산</td></tr>
+                  <tr><td>홍길동</td><td>07-03</td><td>1</td><td>00:30</td><td>00:30</td><td class="b"></td><td class="l dim">1시간 미만</td></tr>
+                  <tr><td>김철수</td><td>07-01</td><td>1</td><td>02:00</td><td>02:00</td><td class="b">O</td><td class="l dim"></td></tr>
+                  <tr><td>김철수</td><td>07-05</td><td>1</td><td>00:00</td><td>00:00</td><td class="b"></td><td class="l dim">1시간 미만</td></tr>
+                  <tr><td>김철수</td><td>07-31</td><td>1</td><td>01:05</td><td>01:05</td><td class="b">O</td><td class="l dim"></td></tr>
+                  <tr><td>이영희</td><td>07-01</td><td>1</td><td>00:00</td><td>00:00</td><td class="b"></td><td class="l dim">1시간 미만</td></tr>
+                  <tr><td>이영희</td><td>07-10</td><td>2</td><td>04:00</td><td>05:00</td><td class="b">O</td><td class="l dim">두 줄 합산</td></tr>
+                  <tr><td>이영희</td><td>07-20</td><td>1</td><td>01:10</td><td>01:10</td><td class="b">O</td><td class="l dim"></td></tr>
+                </table></div>
+              </div>
+              <div class="tabs"><button type="button" class="on">특근매식비 내역</button><button type="button">초과근무 현황(26년 7월)</button><button type="button">초과근무 확인대장(26년 7월)</button><button type="button">검증표</button></div>
+            </div>
+          </details>
+        </div>
+
+        <div class="tool" data-id="overtime-missing">
+          <h3><a href="#overtime-missing">초과근무 미입력 찾기</a></h3>
+          <p class="desc">지문 기록과 대조해 나이스에 빠진 초과근무 시각을 찾습니다.</p>
+          <p class="io"><span class="in">나이스 목록 + 지문 기록</span><span class="arrow">→</span><span class="out">나이스에 넣을 시각</span><span class="net">· 인터넷 불필요</span></p>
+          <details class="preview" open>
+            <summary>결과 예시</summary>
+            <p class="cap"><code>초과근무 입력할목록 2026년 8월.xlsx</code> · 가상 자료 · 파란 칸을 나이스에 입력</p>
+            <div class="xl">
+              <div class="sheet">
+                <div class="scroll"><table>
+                  <tr><th class="navy">성명</th><th class="navy">일자</th><th class="navy">요일</th><th class="navy">휴일</th><th class="navy">신청 시작</th><th class="navy">신청 종료</th><th class="navy">넣을 시작</th><th class="navy">넣을 종료</th><th class="navy">비고</th></tr>
+                  <tr><td>홍길동</td><td>2026-08-30</td><td>일</td><td>O</td><td>09:00</td><td>18:00</td><td class="pick">09:12</td><td class="pick">16:43</td><td class="l">지문 4개 (09:12 ~ 16:43)</td></tr>
+                  <tr><td>김철수</td><td>2026-08-26</td><td>수</td><td></td><td>18:00</td><td>22:00</td><td class="pick">08:52</td><td class="pick">21:01</td><td class="l">지문 3개 (08:52 ~ 21:01)</td></tr>
+                </table></div>
+              </div>
+              <div class="sheet" hidden>
+                <div class="scroll"><table>
+                  <tr><th class="navy">성명</th><th class="navy">일자</th><th class="navy">요일</th><th class="navy">휴일</th><th class="navy">신청 시작</th><th class="navy">신청 종료</th><th class="navy">넣을 시작</th><th class="navy">넣을 종료</th><th class="navy">비고</th></tr>
+                  <tr><td>이영희</td><td>2026-08-12</td><td>수</td><td></td><td>18:00</td><td>21:00</td><td></td><td></td><td class="l">지문 1개뿐 - 시작시각 확인 필요</td></tr>
+                </table></div>
+              </div>
+              <div class="sheet" hidden>
+                <div class="scroll"><table>
+                  <tr><th class="navy">순번</th><th class="navy">성명</th><th class="navy">일자</th><th class="navy">요일</th><th class="navy">휴일</th><th class="navy">신청 시작</th><th class="navy">신청 종료</th><th class="navy">실제 시작</th><th class="navy">실제 종료</th><th class="navy">시간합</th><th class="navy">상태</th></tr>
+                  <tr><td>1</td><td>홍길동</td><td>2026-08-30</td><td>일</td><td>O</td><td>09:00</td><td>18:00</td><td>__:__</td><td>__:__</td><td>00:00</td><td class="l">지문에서 찾음</td></tr>
+                  <tr><td>2</td><td>김철수</td><td>2026-08-26</td><td>수</td><td></td><td>18:00</td><td>22:00</td><td>__:__</td><td>__:__</td><td>00:00</td><td class="l">지문에서 찾음</td></tr>
+                  <tr><td>3</td><td>이영희</td><td>2026-08-12</td><td>수</td><td></td><td>18:00</td><td>21:00</td><td>__:__</td><td>__:__</td><td>00:00</td><td class="l">지문 없음</td></tr>
+                </table></div>
+              </div>
+              <div class="tabs"><button type="button" class="on">입력할 목록</button><button type="button">넣을 값 없는 건</button><button type="button">전체 목록</button></div>
+            </div>
+          </details>
+        </div>
+
+        <div class="tool" data-id="local-travel">
+          <h3><a href="#local-travel">관내출장여비 지급내역 만들기</a></h3>
+          <p class="desc">관내출장 대상목록으로 지급내역과 근거자료를 만듭니다.</p>
+          <p class="io"><span class="in">대상목록 + 지난달 파일</span><span class="arrow">→</span><span class="out">일반여비·요약 + 근거자료</span><span class="net">· 인터넷 불필요</span></p>
+          <details class="preview" open>
+            <summary>결과 예시</summary>
+            <p class="cap"><code>2026년 7월 관내출장여비 지급내역.xlsx</code> · 가상 자료</p>
+            <div class="xl">
+              <div class="sheet">
+                <div class="scroll"><table>
+                  <tr><td class="t" colspan="16">&lt; 2026년 7월 관내출장여비 지급 내역 &gt;</td></tr>
+                  <tr><th class="sky" rowspan="2">번호</th><th class="sky" rowspan="2">직위(급)</th><th class="sky" rowspan="2">성 명</th><th class="sky" colspan="4">4시간 미만(10,000원/출장일)</th><th class="sky" colspan="7">4시간 이상(20,000원/출장일)</th><th class="sky" rowspan="2">지급액</th><th class="sky" rowspan="2">비 고</th></tr>
+                  <tr><th class="sky" colspan="3">출장일자</th><th class="sky">일수</th><th class="sky" colspan="6">출장일자</th><th class="sky">일수</th></tr>
+                  <tr><td>1</td><td>과장</td><td>김○○</td><td></td><td></td><td class="dim">…</td><td>0</td><td>3</td><td>7</td><td>13</td><td>16</td><td>21</td><td class="dim">…</td><td>5</td><td class="r">100,000</td><td></td></tr>
+                  <tr><td>2</td><td>주무관</td><td>이○○</td><td>14</td><td></td><td class="dim">…</td><td>1</td><td>2</td><td>9</td><td>22</td><td></td><td></td><td class="dim">…</td><td>3</td><td class="r">70,000</td><td></td></tr>
+                  <tr class="b"><td colspan="6">합   계</td><td>1</td><td colspan="6">합   계</td><td>8</td><td class="teal r">170,000</td><td></td></tr>
+                </table></div>
+              </div>
+              <div class="sheet" hidden>
+                <div class="scroll"><table>
+                  <tr><td class="t" colspan="7">2026년 7월 출장비 지급내역</td></tr>
+                  <tr><th class="sky" rowspan="2">순번</th><th class="sky" rowspan="2">성명</th><th class="sky" colspan="4">관내출장</th><th class="sky" rowspan="2">합계</th></tr>
+                  <tr><th class="sky">일수</th><th class="sky">10000</th><th class="sky">일수</th><th class="sky">20000</th></tr>
+                  <tr><td>1</td><td>김○○</td><td>0</td><td class="r">0</td><td>5</td><td class="r">100,000</td><td class="r">100,000</td></tr>
+                  <tr><td>2</td><td>이○○</td><td>1</td><td class="r">10,000</td><td>3</td><td class="r">60,000</td><td class="r">70,000</td></tr>
+                  <tr class="b"><td colspan="2">합계</td><td>1</td><td class="r">10,000</td><td>8</td><td class="r">160,000</td><td class="r">170,000</td></tr>
+                </table></div>
+              </div>
+              <div class="sheet" hidden>
+                <p class="sheet-note"><b>K-에듀파인에서 받은 관내여비대상목록</b>이 서식 그대로 붙습니다. 지급 내역의 근거자료입니다.</p>
+              </div>
+              <div class="sheet" hidden>
+                <p class="sheet-note"><b>근무상황부</b>를 함께 넣으면 서식 그대로 붙습니다. 넣지 않으면 생기지 않습니다.</p>
+              </div>
+              <div class="tabs"><button type="button" class="on">일반여비</button><button type="button">요약</button><button type="button">관내여비대상목록</button><button type="button">근무상황부</button></div>
+            </div>
+          </details>
+        </div>
+
+        <div class="tool" data-id="excel-merge">
+          <h3><a href="#excel-merge">엑셀 취합기</a></h3>
+          <p class="desc">학교에서 받은 엑셀을 빈 양식 하나로 모읍니다.</p>
+          <p class="io"><span class="in">빈 양식 + 학교에서 받은 엑셀들</span><span class="arrow">→</span><span class="out">양식 서식 그대로 취합 파일</span><span class="net">· 인터넷 불필요</span></p>
+          <details class="preview" open>
+            <summary>결과 예시</summary>
+            <p class="tiles"><span>받은 파일 <b>3</b></span><span>모인 줄 <b>4</b></span><span>뺀 줄 <b>0</b></span><span>확인 필요 <b>0</b></span></p>
+            <p class="cap"><code>시설현황조사_취합_20260929_1430.xlsx</code> · 가상 자료 · 올리신 빈 양식의 서식 그대로, 오른쪽에 제출파일 칸이 붙습니다</p>
+            <div class="xl">
+              <div class="scroll">
+                <table>
+                  <tr><td class="t" colspan="6">2026 학교 시설 현황 조사</td></tr>
+                  <tr><th class="green">연번</th><th class="green">학교명</th><th class="green">시설 구분</th><th class="green">수량</th><th class="green">비고</th><th class="gray">제출파일</th></tr>
+                  <tr><td>1</td><td>○○초</td><td>체육관</td><td>1</td><td></td><td class="l dim">○○초_시설현황.xlsx</td></tr>
+                  <tr><td>2</td><td>○○초</td><td>급식실</td><td>1</td><td></td><td class="l dim">○○초_시설현황.xlsx</td></tr>
+                  <tr><td>3</td><td>△△중</td><td>체육관</td><td>1</td><td>개보수 중</td><td class="l dim">△△중 시설현황(수정).xlsx</td></tr>
+                  <tr><td>4</td><td>□□고</td><td>강당</td><td>2</td><td></td><td class="l dim">□□고.xlsx</td></tr>
+                </table>
+              </div>
+              <div class="tabs"><button type="button" class="on">조사표</button></div>
+            </div>
+          </details>
+        </div>
+
+        <div class="tool" data-id="contract-ledger">
+          <h3><a href="#contract-ledger">공사대장 만들기</a></h3>
+          <p class="desc">나라장터 계약정보를 불러와 공사대장을 만듭니다. 공공데이터포털 인증키가 필요합니다.</p>
+          <p class="io"><span class="in">인증키·기관코드·기간</span><span class="arrow">→</span><span class="out">계약 21개 항목 엑셀</span><span class="net online">· 조달청 서버 접속</span></p>
+          <details class="preview" open>
+            <summary>결과 예시</summary>
+            <p class="cap"><code>공사대장 ○○교육지원청 2026.01.01~2026.09.07.xlsx</code> · 가상 자료 · 21개 항목 중 일부, 주황 칸은 직접 채움</p>
+            <div class="xl">
+              <div class="scroll">
+                <table>
+                  <tr><th class="navy">사업명</th><th class="navy">사업구분</th><th class="navy">공종</th><th class="navy">발주일</th><th class="navy">발주금액</th><th class="navy">계약일</th><th class="navy">총계약금액</th><th class="navy">착공일</th><th class="navy">준공기한</th><th class="navy">업체명</th><th class="navy dim">…</th></tr>
+                  <tr><td class="l">○○초 급식실 환기설비 개선공사</td><td>공사</td><td>기계설비</td><td class="hand"></td><td class="hand"></td><td>20260312</td><td class="r">48,500,000</td><td>20260320</td><td>20260430</td><td class="l">(주)한빛설비</td><td class="dim">…</td></tr>
+                  <tr><td class="l">△△중 화장실 개선공사</td><td>공사</td><td>건축</td><td class="hand"></td><td class="hand"></td><td>20260605</td><td class="r">126,000,000</td><td>20260720</td><td>20260825</td><td class="l">대성건설(주)</td><td class="dim">…</td></tr>
+                  <tr><td class="l">□□고 소방시설 정밀점검 용역</td><td>용역</td><td>소방</td><td class="hand"></td><td class="hand"></td><td>20260410</td><td class="r">8,900,000</td><td>20260415</td><td>20260515</td><td class="l">안전기술원</td><td class="dim">…</td></tr>
+                </table>
+              </div>
+              <div class="tabs"><button type="button" class="on">공사대장</button></div>
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="note">
+        <p><b>처음 한두 달은 기존 방식과 대조해 보시고 사용하세요.</b> 결과는 반드시 확인 후 사용하시기 바랍니다.</p>
+        <p>업무망 등에서 이 주소가 열리지 않으면, 도구 파일(.html)을 내려받아 더블클릭해도 똑같이 동작합니다.</p>
+      </div>
+
+      <footer>개인이 만든 비공식 업무 보조 도구입니다. · <a href="#feedback">의견·오류 보내기</a></footer>
+    </div>
+  </section>
+</div>
+
+<script>
+  // 결과 예시의 시트 탭
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.xl .tabs button');
+    if (!btn) return;
+    var xl = btn.closest('.xl');
+    var tabs = Array.prototype.slice.call(xl.querySelectorAll('.tabs button'));
+    var sheets = xl.querySelectorAll('.sheet');
+    var i = tabs.indexOf(btn);
+    tabs.forEach(function (t, j) { t.classList.toggle('on', j === i); });
+    Array.prototype.forEach.call(sheets, function (sh, j) { sh.hidden = j !== i; });
+  });
+
+  (function () {
+    var VERSION = '1.0.4';  // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var TOOLS = {
+      'overtime-meal':    '특근매식비 내역서 만들기',
+      'overtime-missing': '초과근무 미입력 찾기',
+      'local-travel':     '관내출장여비 지급내역 만들기',
+      'excel-merge':      '엑셀 취합기',
+      'contract-ledger':  '공사대장 만들기'
+    };
+    var home = document.getElementById('home');
+    var viewer = document.getElementById('viewer');
+    var frame = document.getElementById('viewer-frame');
+    var title = document.getElementById('viewer-title');
+    var pop = document.getElementById('viewer-pop');
+    var links = document.querySelectorAll('.side nav a');
+    var fbPage = document.getElementById('feedback-page');
+    (function () {   // 메일 주소를 화면에서만 조립 (자동 수집 방지)
+      var el = document.getElementById('fb-mail');
+      var rev = function (t) { return t.split('').reverse().join(''); };
+      var addr = rev(el.getAttribute('data-u')) + '@' + rev(el.getAttribute('data-d'));
+      el.textContent = addr;
+      var send = document.querySelector('.fb-send');
+      send.href = 'mailto:' + addr + '?' + send.getAttribute('data-q');
+    })();
+    document.getElementById('fb-copy').addEventListener('click', function () {
+      var t = document.getElementById('fb-mail').textContent, btn = this;
+      function done() { btn.textContent = '복사했습니다'; setTimeout(function () { btn.textContent = '주소 복사'; }, 1500); }
+      if (navigator.clipboard) navigator.clipboard.writeText(t).then(done, function () { window.prompt('주소를 복사하세요', t); });
+      else window.prompt('주소를 복사하세요', t);
+    });
+
+    function show() {
+      var id = location.hash.slice(1);
+      var name = TOOLS[id];
+      links.forEach(function (a) {
+        a.classList.toggle('on', a.getAttribute('data-id') === (name || id === 'feedback' ? id : ''));
+      });
+      if (name) {
+        var src = 'tools/' + id + '.html?v=' + VERSION;
+        if (frame.getAttribute('src') !== src) frame.setAttribute('src', src);
+        title.textContent = name;
+        pop.href = src;
+        document.title = name + ' · 업무 자동화 도구모음';
+        home.classList.remove('on');
+        fbPage.classList.remove('on');
+        viewer.classList.add('on');
+      } else {
+        var fb = id === 'feedback';
+        document.title = fb ? '의견·오류 보내기 · 업무 자동화 도구모음' : '업무 자동화 도구모음';
+        viewer.classList.remove('on');
+        home.classList.toggle('on', !fb);
+        fbPage.classList.toggle('on', fb);
+      }
+      window.scrollTo(0, 0);
+    }
+    window.addEventListener('hashchange', show);
+    show();
+  })();
+</script>
+</body>
+</html>

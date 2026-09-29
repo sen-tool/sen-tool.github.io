@@ -1,0 +1,22 @@
+*자동_*.html
+*조회도구_*.html
+*.hwp
+*.hwpx
+원본/
+개인/
+*.env
+.DS_Store
+Thumbs.db
+
+# 로컬 전용 (tools/·samples/·docs/에 정리본이 있음)
+/공사대장_만들기.html
+/관내출장여비_지급내역_만들기.html
+/초과근무_미입력찾기.html
+/특근매식비_내역서_만들기.html
+/엑셀취합기_*.html
+/시험용_*.xlsx
+/안내문.md
+/GitLab_배포_작업지시서.md
+/excel_merger.py
+/.claude/
+/.backup/
