@@ -201,7 +201,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
 <div class="bar"><div class="bar-in">
   <div class="brand">
     <h1>엑셀 취합기</h1>
-    <span class="ver">v2.0</span>
+    <span class="ver">v2.1</span>
     <span class="dept">학교에서 받은 같은 양식의 엑셀 파일을 하나로 모읍니다</span>
   </div>
   <div class="offline">
@@ -214,8 +214,8 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
 
 <div class="setup">
   <section class="card todo" id="step1">
-    <h2><span class="n">1</span>빈 양식 넣기</h2>
-    <p class="lead">학교에 보냈던 원본 파일입니다. 넣으면 아래에 양식이 펼쳐지고, 제목·입력칸·예시가 색으로 표시됩니다.</p>
+    <h2><span class="n">1</span>빈 양식 넣기 <small style="font-size:13px;font-weight:400;color:var(--sub)">(없으면 건너뛰기)</small></h2>
+    <p class="lead">학교에 보냈던 원본 파일입니다. 없으면 바로 2번에 받은 파일만 넣으세요. 받은 파일끼리 견줘 양식을 대신 만듭니다.</p>
     <div class="zone" id="dropTpl" tabindex="0" role="button" aria-label="빈 양식 선택">
       <strong>빈 양식을 여기에 놓으세요</strong>
       <small>엑셀 파일 1개</small>
@@ -226,12 +226,13 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
       <span class="nm" id="tplName"></span>
       <button type="button" class="plain" id="clearTpl">바꾸기</button>
     </div>
+    <p class="note hidden" id="autoNote" style="margin:10px 0 0"></p>
   </section>
 
   <section class="card todo" id="step2">
     <h2><span class="n">2</span>학교에서 받은 파일 넣기</h2>
     <p class="lead">받은 파일을 한꺼번에 넣으세요. 넣는 즉시 모읍니다. 빠뜨린 파일은 나중에 더 넣어도 됩니다.</p>
-    <div class="zone locked" id="drop" tabindex="0" role="button" aria-label="받은 파일 선택">
+    <div class="zone" id="drop" tabindex="0" role="button" aria-label="받은 파일 선택">
       <strong>받은 파일을 여기에 놓으세요</strong>
       <small>여러 개 한 번에 · 폴더 선택 가능</small>
       <div class="row">
@@ -245,7 +246,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
 </div>
 
 <section class="card hidden" id="step3">
-  <h2><span class="n">3</span>빈 양식 확인</h2>
+  <h2><span class="n">3</span><span id="step3Title">빈 양식 확인</span></h2>
   <p class="lead">색칠된 범위가 맞는지 보세요. 틀렸다면 아래 버튼 중 하나를 고른 뒤, 표에서 <b>행 번호나 그 줄을 마우스로 끌어서</b> 다시 칠하면 됩니다.</p>
   <div class="sheetbar" id="sheetbar"></div>
   <div id="sheetview"></div>
@@ -275,8 +276,8 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
   <div class="flow">
     <div class="box">
       <small>넣는 것</small>
-      <b>빈 양식 1개 + 학교에서 받은 엑셀 여러 개</b>
-      <ul><li>같은 양식으로 받은 파일</li><li>폴더째 넣어도 됩니다</li></ul>
+      <b>학교에서 받은 엑셀 여러 개 (+ 빈 양식)</b>
+      <ul><li>같은 양식으로 받은 파일</li><li>폴더째 넣어도 됩니다</li><li>빈 양식이 없으면 받은 파일끼리 견줘 양식을 만듭니다</li></ul>
     </div>
     <div class="arrow">→</div>
     <div class="box out">
@@ -307,11 +308,11 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
   <div class="fcols">
     <div>
       <b>엑셀 취합기</b>
-      <span>v2.0 · 2026-09-28</span>
+      <span>v2.1 · 2026-10-01</span>
     </div>
     <div>
       <b>어떻게 모으나요</b>
-      <span>빈 양식과 한 줄씩 견줘 학교가 새로 쓴 줄만 가져옵니다. 손대지 않은 줄과 예시 줄은 빼고, 뺀 줄은 "뺀 줄"에서 모두 보고 다시 넣을 수 있습니다.</span>
+      <span>빈 양식과 한 줄씩 견줘 학교가 새로 쓴 줄만 가져옵니다. 빈 양식이 없으면 모든 파일에 똑같이 있는 칸을 양식으로 봅니다. 손대지 않은 줄과 예시 줄은 빼고, 뺀 줄은 "뺀 줄"에서 모두 보고 다시 넣을 수 있습니다.</span>
     </div>
     <div>
       <b>파일은 어디로도 가지 않습니다</b>
@@ -634,7 +635,8 @@ var ENGINE = (function () {
       if (b.r < 0) { cfg.include = false; cfg.empty = true; cfg.hs = 0; cfg.he = 0; cfg.ds = 1; cfg.lastCol = 0; cfg.ex = []; cfg.schoolCols = []; cfg.serialCols = []; return cfg; }
       var he = structureHeader(ref, b.c, b.r);
       var ds = he + 1;
-      while (ds <= b.r && rowEmpty(ref, ds, b.c)) ds++;
+      // 받은 파일로 만든 양식은 학교가 쓴 칸을 비웠으므로 빈 줄을 건너뛰지 않음 (건너뛰면 합계 줄부터 잡힘)
+      while (!tplWb.auto && ds <= b.r && rowEmpty(ref, ds, b.c)) ds++;
       if (ds > b.r) ds = he + 1;
       var hs = he;
       while (hs - 1 >= 0 && he - hs < 5 && headerLike(ref, hs - 1, b.c)) hs--;
@@ -1309,7 +1311,54 @@ var ENGINE = (function () {
 
   function colName(c) { return XLSX.utils.encode_col(c); }
 
-  return { analyze: analyze, refit: refit, merge: merge, gridData: gridData, mergedPreview: mergedPreview,
+  /* ---------- 빈 양식 없이: 학교 파일끼리 견줘 양식 만들기 ----------
+     모든 파일에서 같은 자리에 같은 값이 있는 칸(제목·안내문·수식)만 남기고, 파일마다 다른 칸은 비운다.
+     파일이 하나뿐이면 제목 줄 아래의 직접 쓴 값을 비운다.
+     clear: 비운 칸 주소 목록 (서식 있는 결과 파일에서 같은 칸을 비우는 데 씀) */
+  function sameCell(a, b) {
+    if (!b) return false;
+    if (a.f) return !!b.f;
+    if (b.f) return false;
+    return norm(disp(a)) === norm(disp(b));
+  }
+  // 제목 위에 줄을 더 넣은 파일도 맞출 수 있게, 기준 파일과 가장 잘 겹치는 위아래 어긋남을 찾음
+  function alignOffset(ws, o) {
+    var b = bounds(ws), maxR = Math.min(b.r, 40), maxC = Math.min(b.c, 40), best = 0, bestN = -1;
+    [0].concat([1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6, -6, 7, -7, 8, -8, 9, -9, 10, -10]).forEach(function (d) {
+      var n = 0;
+      for (var r = 0; r <= maxR; r++) for (var c = 0; c <= maxC; c++) {
+        var x = get(ws, r, c);
+        if (!x || x.f || disp(x) === '' || r + d < 0) continue;
+        var y = get(o, r + d, c);
+        if (y && !y.f && norm(disp(y)) === norm(disp(x))) n++;
+      }
+      if (n > bestN) { bestN = n; best = d; }
+    });
+    return best;
+  }
+  function autoTemplate(files) {
+    var base = files[0].wb;
+    var wb = { SheetNames: base.SheetNames.slice(), Sheets: {}, Workbook: base.Workbook, auto: true }, clear = {};
+    base.SheetNames.forEach(function (name, idx) {
+      var ws = base.Sheets[name], out = {}, cl = [];
+      var others = [];
+      files.slice(1).forEach(function (f) { var o = findSheet(f.wb, name, idx); if (o) others.push(o); });
+      var offs = others.map(function (o) { return alignOffset(ws, o); });
+      var b = bounds(ws), he = b.r >= 0 && !others.length ? structureHeader(ws, b.c, b.r) : -1;
+      Object.keys(ws).forEach(function (k) {
+        if (k.charAt(0) === '!') { out[k] = ws[k]; return; }
+        var x = ws[k], p = XLSX.utils.decode_cell(k);
+        var keep = !x || x.t === 'z' || disp(x) === '' ||
+          (others.length ? others.every(function (o, i) { return sameCell(x, get(o, p.r + offs[i], p.c)); }) : (x.f || p.r <= he));
+        if (keep) out[k] = x; else cl.push(k);
+      });
+      wb.Sheets[name] = out;
+      clear[name] = cl;
+    });
+    return { wb: wb, clear: clear };
+  }
+
+  return { analyze: analyze, refit: refit, merge: merge, gridData: gridData, mergedPreview: mergedPreview, autoTemplate: autoTemplate,
            buildWorkbook: buildWorkbook, buildCardWorkbook: buildCardWorkbook, cardPreview: cardPreview,
            shiftFormula: shiftFormula, remapFormula: remapFormula, colName: colName, isPlaceholder: isPlaceholder, findSheet: findSheet, bounds: bounds };
 })();
@@ -1572,6 +1621,21 @@ var STYLED = (function () {
     return w;
   }
 
+  /* 정해 둔 칸의 값만 지우고 서식은 남김 (학교 파일을 양식으로 쓸 때 그 학교가 쓴 값 지우기) */
+  function clearCells(xml, refs) {
+    if (!refs || !refs.length) return xml;
+    var set = {};
+    refs.forEach(function (r) { set[r] = true; });
+    var cells = sliceTags(xml, 'c');
+    for (var i = cells.length - 1; i >= 0; i--) {
+      var c = cells[i], r = attr(c.head, 'r');
+      if (!r || !set[r]) continue;
+      var s = attr(c.head, 's');
+      xml = xml.slice(0, c.start) + '<c r="' + r + '"' + (s != null ? ' s="' + s + '"' : '') + '/>' + xml.slice(c.end);
+    }
+    return xml;
+  }
+
   /* 빈 양식 파일(ArrayBuffer)에 취합 결과를 채워 넣어 새 파일 만들기 */
   function build(tplBuf, sum, JSZipLib, opts) {
     return JSZipLib.loadAsync(tplBuf).then(function (zip) {
@@ -1585,6 +1649,13 @@ var STYLED = (function () {
           });
 
           var chain = Promise.resolve(), ren = [], extras = [];
+          if (opts && opts.clear) sheets.forEach(function (s) {
+            var refs = opts.clear[s.name];
+            if (!refs || !refs.length || !zip.file(s.path)) return;
+            chain = chain.then(function () {
+              return zip.file(s.path).async('string').then(function (xml) { zip.file(s.path, clearCells(xml, refs)); });
+            });
+          });
           sum.sheets.forEach(function (cfg) {
             var sh = null;
             sheets.forEach(function (s) { if (s.name === cfg.name) sh = s; });
@@ -1644,14 +1715,15 @@ if (typeof module !== 'undefined') module.exports = STYLED;
 
   /* ---------- 상태 ---------- */
   var tplFile = null, tplBuf = null, tplWb = null;
+  var autoTpl = null;                    // 빈 양식 없이 받은 파일로 만든 양식일 때: 시트별로 비운 칸 주소
   var files = [], failed = [], seenKeys = {};
   var cfgs = [], store = {}, force = {};
   var summary = null, activeSheet = null, brush = 'head', curTab = 'preview', pvSheet = null;
   var reading = 0;
 
   function storeKey() { return 'xlmerge2:' + (tplFile ? tplFile.name : '-'); }
-  function loadStore() { try { store = JSON.parse(localStorage.getItem(storeKey()) || '{}') || {}; } catch (e) { store = {}; } }
-  function saveStore() { try { localStorage.setItem(storeKey(), JSON.stringify(store)); } catch (e) {} }
+  function loadStore() { if (!tplFile) { store = {}; return; } try { store = JSON.parse(localStorage.getItem(storeKey()) || '{}') || {}; } catch (e) { store = {}; } }
+  function saveStore() { if (!tplFile) return; try { localStorage.setItem(storeKey(), JSON.stringify(store)); } catch (e) {} }
   function saveCfg(c) {
     store[c.name] = { hs: c.hs, he: c.he, ds: c.ds, de: c.de, ex: (c.ex || []).slice(), include: c.include, mode: c.mode };
     c.autoOff = false; c.autoCard = false;
@@ -1688,6 +1760,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
     readBuf(f).then(function (buf) {
       tplBuf = buf; tplWb = buf ? parse(buf) : null;
       if (!tplWb) { $('tplName').textContent = f.name + ' — 열 수 없습니다. 암호나 파일 손상을 확인하세요.'; return; }
+      autoTpl = null; showAutoNote();
       loadStore(); force = {};
       cfgs = ENGINE.analyze(tplWb, files);
       $('tplName').innerHTML = esc(f.name) + '<br><span style="font-weight:400;font-size:12.5px;color:var(--sub)">시트 ' + cfgs.length + '개를 찾았습니다. <a href="#step3" class="seeRange">범위를 아래에 색으로 표시했습니다 ↓</a></span>';
@@ -1721,10 +1794,43 @@ if (typeof module !== 'undefined') module.exports = STYLED;
     showRange();
   });
   function clearTpl() {
-    tplFile = tplBuf = tplWb = null; cfgs = []; summary = null;
+    tplFile = tplBuf = tplWb = null; cfgs = []; summary = null; autoTpl = null;
     $('tplLoaded').classList.add('hidden'); $('dropTpl').classList.remove('hidden');
     $('step3').classList.add('hidden'); $('step4').classList.add('hidden');
+    if (files.length) { useAuto(); remerge(); }
     refreshSteps();
+  }
+
+  /* 빈 양식을 넣지 않았으면 받은 파일끼리 견줘 양식을 만든다 */
+  function useAuto() {
+    if (tplFile) return;
+    if (!files.length) {
+      tplBuf = tplWb = null; autoTpl = null; cfgs = []; summary = null; store = {};
+      $('step3').classList.add('hidden'); $('step4').classList.add('hidden');
+      showAutoNote();
+      return;
+    }
+    // 서식 본보기는 .xlsx 파일로 (옛 .xls는 서식을 살려 쓸 수 없음)
+    var list = files.slice(), bi = 0;
+    list.some(function (f, i) { if (/\.(xlsx|xlsm)$/i.test(f.name)) { bi = i; return true; } return false; });
+    list.unshift(list.splice(bi, 1)[0]);
+    var t = ENGINE.autoTemplate(list);
+    tplWb = t.wb; autoTpl = t.clear; tplBuf = list[0].buf;
+    var prev = activeSheet;
+    cfgs = ENGINE.analyze(tplWb, files);
+    applyStore();
+    activeSheet = cfgOf(prev) ? prev : ((cfgs.filter(function (c) { return c.include; })[0] || cfgs[0] || {}).name || null);
+    showAutoNote(list[0].name);
+  }
+  function showAutoNote(base) {
+    var el = $('autoNote');
+    if (!autoTpl) { el.classList.add('hidden'); $('step3Title').textContent = '빈 양식 확인'; return; }
+    el.innerHTML = files.length === 1
+      ? '빈 양식 없이 취합합니다. 받은 파일이 <b>1개</b>뿐이라 제목 줄 아래에 적힌 값은 모두 학교가 쓴 것으로 봅니다. 파일을 더 넣거나 빈 양식을 넣으면 더 정확합니다.'
+      : '빈 양식 없이 받은 파일 <b>' + files.length + '개</b>를 서로 견줘 양식을 만들었습니다. 모든 파일에 똑같이 있는 칸은 양식, 파일마다 다른 칸은 학교가 쓴 것으로 봅니다.' +
+        (base ? ' 결과 파일 서식은 「' + esc(base) + '」를 따릅니다.' : '') + ' 결과가 이상하면 빈 양식을 넣으세요.';
+    el.classList.remove('hidden');
+    $('step3Title').textContent = '양식 확인 (받은 파일로 만든 양식)';
   }
 
   function addFiles(list) {
@@ -1742,7 +1848,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
     todo.forEach(function (f) {
       chain = chain.then(function () { return readBuf(f); }).then(function (buf) {
         var wb = buf ? parse(buf) : null;
-        if (wb) files.push({ name: f.name, wb: wb }); else failed.push(f.name);
+        if (wb) files.push({ name: f.name, wb: wb, buf: buf }); else failed.push(f.name);
         done++;
         $('runMsg').textContent = '파일 읽는 중… ' + done + ' / ' + todo.length;
         renderTray();
@@ -1751,6 +1857,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
     renderTray();
     chain.then(function () {
       reading -= todo.length;
+      if (!tplFile) useAuto();
       if (tplWb) {
         cfgs.forEach(function (c) { c.fileCount = files.filter(function (x) { return !!ENGINE.findSheet(x.wb, c.name, c.idx); }).length; });
         remerge();
@@ -1761,7 +1868,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
   }
   function clearFiles() {
     files = []; failed = []; seenKeys = {}; force = {}; summary = null;
-    $('step4').classList.add('hidden'); renderTray(); refreshSteps(); if (tplWb) renderSheets();
+    $('step4').classList.add('hidden'); renderTray(); useAuto(); refreshSteps(); if (tplWb) renderSheets();
   }
 
   function renderTray() {
@@ -1775,7 +1882,6 @@ if (typeof module !== 'undefined') module.exports = STYLED;
   function refreshSteps() {
     $('step1').classList.toggle('todo', !tplWb);
     $('step2').classList.toggle('todo', !files.length);
-    $('drop').classList.toggle('locked', !tplFile);
   }
 
   /* ---------- 취합 ---------- */
@@ -2085,7 +2191,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
     });
     if (!pv.body.length) h += '<tr><td class="rn"></td><td colspan="' + (cols + 2) + '" style="color:var(--sub)">이 시트에는 모인 줄이 없습니다.</td></tr>';
     h += '</tbody></table>';
-    return bar + '<p class="lead" style="margin:0 0 8px">파란 줄은 빈 양식의 제목 그대로, 초록 줄이 학교에서 모인 줄입니다. 모인 줄 <b>' + pv.total + '개</b>' + (pv.total > pv.body.length ? ' (앞 ' + pv.body.length + '줄만 표시)' : '') + '. 회색 글자는 수식 칸으로, 내려받은 파일에서 모인 줄 기준으로 다시 계산됩니다.</p>' +
+    return bar + '<p class="lead" style="margin:0 0 8px">파란 줄은 양식의 제목 그대로, 초록 줄이 학교에서 모인 줄입니다. 모인 줄 <b>' + pv.total + '개</b>' + (pv.total > pv.body.length ? ' (앞 ' + pv.body.length + '줄만 표시)' : '') + '. 회색 글자는 수식 칸으로, 내려받은 파일에서 모인 줄 기준으로 다시 계산됩니다.</p>' +
       '<div class="gridbox plain">' + h + '</div>';
   }
 
@@ -2145,7 +2251,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
     var btn = this, tableSum = {};
     Object.keys(summary).forEach(function (k) { tableSum[k] = summary[k]; });
     tableSum.sheets = summary.sheets.filter(function (c) { return c.mode !== 'card'; });
-    btn.disabled = true; $('dlMsg').textContent = '빈 양식에 채워 넣는 중…';
+    btn.disabled = true; $('dlMsg').textContent = autoTpl ? '받은 파일의 서식에 채워 넣는 중…' : '빈 양식에 채워 넣는 중…';
     var done = false;
     var plain = function (why) {
       if (done) return; done = true;
@@ -2153,11 +2259,11 @@ if (typeof module !== 'undefined') module.exports = STYLED;
       $('dlMsg').textContent = why; btn.disabled = false;
     };
     var guard = setTimeout(function () { plain('시간이 오래 걸려 서식 없는 파일로 내려받았습니다.'); }, 30000);
-    STYLED.build(tplBuf.slice(0), tableSum, JSZip, { remap: ENGINE.remapFormula }).then(function (blob) {
+    STYLED.build(tplBuf.slice(0), tableSum, JSZip, { remap: ENGINE.remapFormula, clear: autoTpl }).then(function (blob) {
       clearTimeout(guard); if (done) return; done = true;
       saveBlob(blob, baseName() + '취합_' + stamp() + '.xlsx');
-      $('dlMsg').textContent = '빈 양식의 서식과 수식을 그대로 살려 내려받았습니다.'; btn.disabled = false;
-    }).catch(function (e) { clearTimeout(guard); plain('빈 양식에 채워 넣지 못해 서식 없는 파일로 내려받았습니다. (' + (e && e.message ? e.message : '') + ')'); });
+      $('dlMsg').textContent = (autoTpl ? '받은 파일' : '빈 양식') + '의 서식과 수식을 그대로 살려 내려받았습니다.'; btn.disabled = false;
+    }).catch(function (e) { clearTimeout(guard); plain((autoTpl ? '받은 파일의 서식' : '빈 양식') + '에 채워 넣지 못해 서식 없는 파일로 내려받았습니다. (' + (e && e.message ? e.message : '') + ')'); });
   };
   $('downloadTop').onclick = function () { $('download').click(); };
   new MutationObserver(function () {
