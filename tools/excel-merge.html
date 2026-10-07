@@ -212,7 +212,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
 <div class="bar"><div class="bar-in">
   <div class="brand">
     <h1>엑셀 취합기</h1>
-    <span class="ver">v3.2</span>
+    <span class="ver">v3.3</span>
     <span class="dept">학교에서 받은 같은 양식의 엑셀 파일을 하나로 모읍니다</span>
   </div>
   <div class="offline">
@@ -324,7 +324,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
   <div class="fcols">
     <div>
       <b>엑셀 취합기</b>
-      <span>v3.2 · 2026-10-07</span>
+      <span>v3.3 · 2026-10-07</span>
     </div>
     <div>
       <b>어떻게 모으나요</b>
@@ -1261,7 +1261,7 @@ var ENGINE = (function () {
           if (refFileCol >= 0) row.fileLabel = disp(get(ws, x.r, refFileCol));
           for (var c3 = 0; c3 <= cfg.lastCol; c3++) {
             var cell = get(ws, x.r, c3);
-            row.push(cell ? { t: cell.t, v: cell.v, w: cell.w, f: cell.f } : null);
+            row.push(cell ? { t: cell.t, v: cell.v, w: cell.w, f: cell.f, z: cell.z } : null);   // z: 학교 칸의 표시 형식 (8,888 / 2026-10-07 …)
             if (cell && cell.t === 'e') errs.push(A(x.r, c3) + '(' + (cell.w || '오류') + ')');
           }
           verifyCols.forEach(function (vc) {
@@ -1443,8 +1443,8 @@ var ENGINE = (function () {
       return o;
     }
     if (x.t === 'e') return { t: 's', v: x.w || '#오류' };
-    if (x.t === 'd' || x.v instanceof Date) return { t: 'd', v: x.v, z: 'yyyy-mm-dd' };
-    if (x.t === 'n') return { t: 'n', v: x.v };
+    if (x.t === 'd' || x.v instanceof Date) return { t: 'd', v: x.v, z: x.z && x.z !== 'General' ? x.z : 'yyyy-mm-dd' };
+    if (x.t === 'n') return x.z && x.z !== 'General' ? { t: 'n', v: x.v, z: x.z } : { t: 'n', v: x.v };
     if (x.t === 'b') return { t: 'b', v: x.v };
     if (x.t === 'z') return null;
     return { t: 's', v: String(x.v == null ? '' : x.v) };
@@ -1584,10 +1584,10 @@ var ENGINE = (function () {
     if (!ref) return null;
     var head = gridData(ref, cfg.hs, cfg.he, cfg.lastCol), body = [], total = 0;
     sum.results.forEach(function (res) {
-      (res.rows[cfg.name] || []).forEach(function (row) {
+      (res.rows[cfg.name] || []).forEach(function (row) {   // 숫자·날짜는 학교 칸에 보이던 모양대로 보여 줌
         total++;
         if (body.length >= maxRows) return;
-        body.push({ file: row.fileLabel || res.file, school: res.school, note: row.note || '', cells: row.map(function (x) { return disp(x); }), fx: row.map(function (x) { return !!(x && x.f); }) });
+        body.push({ file: row.fileLabel || res.file, school: res.school, note: row.note || '', cells: row.map(function (x) { return x && x.w != null && (x.t === 'n' || x.t === 'd') ? String(x.w) : disp(x); }), fx: row.map(function (x) { return !!(x && x.f); }) });
       });
     });
     return { head: head, body: body, total: total, lastCol: cfg.lastCol, startRow: cfg.he + 2 };
@@ -1705,8 +1705,65 @@ var STYLED = (function () {
     return n - 1;
   }
 
+  /* 셀 표시 형식(천 단위 쉼표, 날짜 등)을 학교 칸에서 가져오기
+     양식 칸의 글꼴·테두리·색은 그대로 두고, 양식 칸에 맞는 표시 형식이 없을 때만 학교 칸의 형식을 붙인 스타일을 새로 만든다. */
+  var BUILTIN_FMT = { 0: 'General', 1: '0', 2: '0.00', 3: '#,##0', 4: '#,##0.00', 9: '0%', 10: '0.00%', 11: '0.00E+00', 12: '# ?/?', 13: '# ??/??',
+    14: 'm/d/yy', 15: 'd-mmm-yy', 16: 'd-mmm', 17: 'mmm-yy', 18: 'h:mm AM/PM', 19: 'h:mm:ss AM/PM', 20: 'h:mm', 21: 'h:mm:ss', 22: 'm/d/yy h:mm', 49: '@' };
+  function unXml(t) { return String(t).replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'); }
+  function fmtKind(code) {
+    if (!code || code === 'General' || code === '@') return '';
+    var c = code.replace(/"[^"]*"/g, '').replace(/\\./g, '').replace(/\[[^\]]*\]/g, '');
+    return /[ydmhs]/i.test(c.replace(/E[+-]/g, '')) ? 'date' : 'num';
+  }
+  function styleBook(xml) {
+    var custom = {}, maxId = 163, cache = {}, changed = false;
+    sliceTags(xml, 'numFmt').forEach(function (n) {
+      var id = +attr(n.head, 'numFmtId');
+      custom[id] = unXml(attr(n.head, 'formatCode') || '');
+      maxId = Math.max(maxId, id);
+    });
+    var a = xml.indexOf('<cellXfs'), b = xml.indexOf('</cellXfs>');
+    if (a < 0 || b < 0) return null;
+    var openEnd = xml.indexOf('>', a) + 1;
+    var xfs = sliceTags(xml.slice(openEnd, b), 'xf').map(function (t) { return t.xml; });
+    var codeOf = function (id) { return custom.hasOwnProperty(id) ? custom[id] : (BUILTIN_FMT[id] || null); };
+    var idOf = function (code) {
+      for (var k in BUILTIN_FMT) if (BUILTIN_FMT[k] === code) return +k;
+      for (var c in custom) if (custom[c] === code) return +c;
+      custom[++maxId] = code; changed = true;
+      return maxId;
+    };
+    return {
+      // s: 양식 칸 스타일 번호, v: 학교 칸 값 → 쓸 스타일 번호
+      get: function (s, v) {
+        var code = v.z && v.z !== 'General' ? String(v.z) : null;
+        if ((v.t === 'd' || v.v instanceof Date) && fmtKind(code) !== 'date') code = 'yyyy-mm-dd';
+        if (!code || (v.t !== 'n' && v.t !== 'd' && !(v.v instanceof Date))) return s;
+        var base = s != null && xfs[+s] ? +s : 0, xf = xfs[base] || '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>';
+        var cur = codeOf(+(attr(xf, 'numFmtId') || 0));
+        if (fmtKind(cur) && fmtKind(cur) === fmtKind(code)) return s;     // 양식 칸에 맞는 형식이 이미 있음
+        var nid = idOf(code), key = base + ':' + nid;
+        if (cache.hasOwnProperty(key)) return cache[key];
+        var nx = /\bnumFmtId="/.test(xf) ? xf.replace(/\bnumFmtId="[^"]*"/, 'numFmtId="' + nid + '"') : xf.replace(/^<xf\b/, '<xf numFmtId="' + nid + '"');
+        nx = /\bapplyNumberFormat="/.test(nx) ? nx.replace(/\bapplyNumberFormat="[^"]*"/, 'applyNumberFormat="1"') : nx.replace(/^<xf\b/, '<xf applyNumberFormat="1"');
+        xfs.push(nx); changed = true;
+        return (cache[key] = xfs.length - 1);
+      },
+      changed: function () { return changed; },
+      finish: function () {
+        var out = xml.slice(0, a) + '<cellXfs count="' + xfs.length + '">' + xfs.join('') + xml.slice(b);
+        var ids = Object.keys(custom).map(Number).sort(function (x, y) { return x - y; });
+        var nf = ids.length ? '<numFmts count="' + ids.length + '">' + ids.map(function (id) { return '<numFmt numFmtId="' + id + '" formatCode="' + xEsc(custom[id]) + '"/>'; }).join('') + '</numFmts>' : '';
+        var na = out.indexOf('<numFmts'), ne = out.indexOf('</numFmts>');
+        if (na >= 0) out = out.slice(0, na) + nf + out.slice(ne >= 0 ? ne + 10 : out.indexOf('>', na) + 1);
+        else { var ss = out.indexOf('<styleSheet'), se = out.indexOf('>', ss) + 1; out = out.slice(0, se) + nf + out.slice(se); }
+        return out;
+      }
+    };
+  }
+
   /* 한 시트의 sheetData를 교체 */
-  function rewriteSheet(xml, cfg, blocks, remap) {
+  function rewriteSheet(xml, cfg, blocks, remap, fmt) {
     var sdOpen = xml.indexOf('<sheetData');
     if (sdOpen < 0) return xml;
     var tagEnd = xml.indexOf('>', sdOpen), selfClose = xml.charAt(tagEnd - 1) === '/';
@@ -1773,6 +1830,7 @@ var STYLED = (function () {
           if (ci > maxCol) return;
           var s = st.map[ci], ref = colName(ci) + rowNo;
           var v = ci === fileCol ? (row.fileLabel || block.file) : (ci === noteCol ? (row.note || '') : (ci <= cfg.lastCol ? row[ci] : null));
+          if (fmt && ci <= cfg.lastCol && v && typeof v === 'object') s = fmt(s, v);   // 학교 칸의 표시 형식
           var sa = (s != null && ci <= cfg.lastCol) ? ' s="' + s + '"' : '';
           if (v == null || v === '' || (typeof v === 'object' && v.v == null)) { cellXml += '<c r="' + ref + '"' + sa + '/>'; return; }
           if (ci === fileCol || ci === noteCol) { cellXml += '<c r="' + ref + '" t="inlineStr"><is><t xml:space="preserve">' + esc(v) + '</t></is></c>'; return; }
@@ -1951,7 +2009,11 @@ var STYLED = (function () {
             return { name: attr(s.head, 'name'), path: 'xl/' + t.replace(/^\/?xl\//, '').replace(/^\//, '') };
           });
 
-          var chain = Promise.resolve(), ren = [], extras = [];
+          var chain = Promise.resolve(), ren = [], extras = [], book = null;
+          var fmt = function (s, v) { return book ? book.get(s, v) : s; };
+          if (zip.file('xl/styles.xml')) chain = chain.then(function () {
+            return zip.file('xl/styles.xml').async('string').then(function (x) { book = styleBook(x); });
+          });
           if (opts && opts.clear) sheets.forEach(function (s) {
             var refs = opts.clear[s.name];
             if (!refs || !refs.length || !zip.file(s.path)) return;
@@ -1975,9 +2037,9 @@ var STYLED = (function () {
             if (groups[0].name !== cfg.name) ren.push([cfg.name, groups[0].name]);
             chain = chain.then(function () {
               return zip.file(sh.path).async('string').then(function (xml) {
-                zip.file(sh.path, rewriteSheet(xml, cfg, blocksOf(groups[0]), opts && opts.remap));
+                zip.file(sh.path, rewriteSheet(xml, cfg, blocksOf(groups[0]), opts && opts.remap, fmt));
                 for (var k = 1; k < groups.length; k++) {
-                  extras.push({ after: groups[k - 1].name, name: groups[k].name, xml: cloneSheetXml(rewriteSheet(xml, cfg, blocksOf(groups[k]), opts && opts.remap)) });
+                  extras.push({ after: groups[k - 1].name, name: groups[k].name, xml: cloneSheetXml(rewriteSheet(xml, cfg, blocksOf(groups[k]), opts && opts.remap, fmt)) });
                 }
               });
             });
@@ -1987,6 +2049,7 @@ var STYLED = (function () {
           chain = chain.then(function () { return addExtraParts(zip, extras); });
 
           return chain.then(function () {
+            if (book && book.changed()) zip.file('xl/styles.xml', book.finish());
             zip.remove('xl/calcChain.xml');
             var w = insertSheetTags(renameInWorkbookXml(wbXml, ren), extras);
             if (/<calcPr[^>]*\/>/.test(w)) w = w.replace(/<calcPr[^>]*\/>/, '<calcPr fullCalcOnLoad="1"/>');
@@ -2054,7 +2117,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
       fr.readAsArrayBuffer(f);
     });
   }
-  function parse(buf) { try { return XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true }); } catch (e) { return null; } }
+  function parse(buf) { try { return XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true, cellNF: true }); } catch (e) { return null; } }
 
   function setTpl(f) {
     if (!f || !isXl(f.name)) return;
