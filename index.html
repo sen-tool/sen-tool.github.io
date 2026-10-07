@@ -430,7 +430,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.3.1 · 2026.10.07 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.3.2 · 2026.10.07 수정</a></div>
 </aside>
 
 <div class="main">
@@ -489,6 +489,14 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.3.2</b><span>2026.10.07</span></div>
+          <ul>
+            <li>엑셀 취합기: 취합 결과 위쪽 숫자 칸(받은 파일·모인 줄·뺀 줄·확인 필요)을 누르면 바로 그 내용이 열림. 아래 탭 줄은 없앰</li>
+            <li>엑셀 취합기: 같은 줄을 여러 파일이 다르게 적었을 때 누구 줄인지와 「이 학교 파일」을 표시하고, 「줄마다 그 학교 파일 것으로 모두 고르기」 추가</li>
+            <li>엑셀 취합기: 남의 학교 줄까지 적은 파일이 그 학교로 잘못 표시되던 문제 고침(파일 이름의 학교 우선). 「뺀 줄」에 학교가 적은 답 칸 내용이 보임</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.3.1</b><span>2026.10.07</span></div>
           <ul>
@@ -859,7 +867,7 @@
   });
 
   (function () {
-    var VERSION = '1.3.1';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var VERSION = '1.3.2';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
     var UPDATED = '2026.10.07';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {

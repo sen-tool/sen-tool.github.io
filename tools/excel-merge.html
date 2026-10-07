@@ -119,7 +119,10 @@ table.xl tr.b-out td{color:#9AA6AE}
 /* 결과 */
 .ledger{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
 @media (max-width:720px){.ledger{grid-template-columns:repeat(2,1fr)}}
-.ledger div{padding:12px 15px;background:var(--paper);border:1px solid var(--rule);border-radius:var(--r)}
+.ledger button{padding:12px 15px;background:var(--paper);border:1px solid var(--rule);border-radius:var(--r);text-align:left;color:var(--ink);font-size:inherit;cursor:pointer;position:relative}
+.ledger button:hover{border-color:var(--teal);color:var(--ink)}
+.ledger button[aria-selected="true"]{border:2px solid var(--teal);padding:11px 14px;box-shadow:0 0 0 3px var(--mint)}
+.ledger button[aria-selected="true"]::after{content:"보는 중";position:absolute;right:10px;top:9px;font-size:11px;color:var(--teal);font-weight:700}
 .ledger b{display:block;font-size:23px;line-height:1.2;font-variant-numeric:tabular-nums}
 .ledger span{font-size:12.5px;color:var(--sub)}
 .ledger .warn{background:var(--warn-bg);border-color:#EBCE92}
@@ -141,6 +144,9 @@ td.zero{color:var(--err);font-weight:700}
 .tag.ok{background:var(--ok-bg);color:var(--ok)} .tag.chk{background:var(--err-bg);color:var(--err)}
 .empty{padding:26px;color:var(--sub);text-align:center}
 .mini{border-collapse:collapse;font-size:12px;margin-top:6px}
+.panel table.list.iss{table-layout:fixed}
+.panel table.list.iss th:nth-child(1){width:22%} .panel table.list.iss th:nth-child(2){width:18%}
+.isswrap{overflow-x:auto;max-width:100%}
 .mini th,.mini td{border:1px solid #E4E9EC;padding:3px 7px;white-space:nowrap;text-align:left}
 .mini th{background:#F2F6F7}
 .cells{font-size:12px;color:var(--sub);max-width:520px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -206,7 +212,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
 <div class="bar"><div class="bar-in">
   <div class="brand">
     <h1>엑셀 취합기</h1>
-    <span class="ver">v3.1</span>
+    <span class="ver">v3.2</span>
     <span class="dept">학교에서 받은 같은 양식의 엑셀 파일을 하나로 모읍니다</span>
   </div>
   <div class="offline">
@@ -270,13 +276,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
 <section class="card hidden" id="step4">
   <h2><span class="n">4</span>취합 결과</h2>
   <div class="status"><span id="runMsg"></span><span class="savebox"><span class="msg" id="dlMsgTop"></span><button type="button" class="solid" id="downloadTop">취합 파일 저장하기</button></span></div>
-  <div class="ledger" id="ledger"></div>
-  <div class="tabs" role="tablist" id="tabs">
-    <button role="tab" aria-selected="true" data-tab="preview">미리보기</button>
-    <button role="tab" aria-selected="false" data-tab="schools">학교별 현황</button>
-    <button role="tab" aria-selected="false" data-tab="out">뺀 줄 <span class="cnt" id="cntOut">0</span></button>
-    <button role="tab" aria-selected="false" data-tab="issues">확인 필요 <span class="cnt" id="cntIss">0</span></button>
-  </div>
+  <div class="ledger" id="ledger" role="tablist"></div>
   <div class="panel" id="panel"></div>
   <div class="getrow">
     <button class="solid" id="download">취합 파일 저장하기</button>
@@ -324,7 +324,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
   <div class="fcols">
     <div>
       <b>엑셀 취합기</b>
-      <span>v3.1 · 2026-10-07</span>
+      <span>v3.2 · 2026-10-07</span>
     </div>
     <div>
       <b>어떻게 모으나요</b>
@@ -996,7 +996,7 @@ var ENGINE = (function () {
     var sc = (cfg.schoolCols || [])[0], list = [], tb = bounds(tplWs);
     var nameOf = function (row) { return sc != null && row[sc] ? disp(row[sc]) : ''; };
     if (sc != null) for (var r = cfg.ds; r <= tb.r; r++) { var v = disp(get(tplWs, r, sc)); if (v && list.indexOf(v) < 0) list.push(v); }
-    var named = [];
+    var named = [], fileMain = [];
 
     // 1) 파일 이름의 학교, 여러 학교를 모은 파일인지
     //    모인 줄의 학교가 3곳 이상이거나, 파일 이름에 학교명이 없고 2곳 이상이면 여러 학교를 모은 파일로 봄
@@ -1007,6 +1007,8 @@ var ENGINE = (function () {
       var bases = [];
       (res.rows[cfg.name] || []).forEach(function (row) { var n = nameOf(row); if (n && bases.indexOf(baseSchool(n)) < 0) bases.push(baseSchool(n)); });
       if (bases.length >= 3 || (bases.length >= 2 && !fs)) res.multi = Math.max(res.multi || 0, bases.length);
+      // 이 파일을 낸 학교: 파일 이름의 학교, 없으면 모인 줄에 가장 많은 학교 (여러 학교 파일은 없음)
+      fileMain[i] = fs ? baseSchool(fs) : (res.multi ? null : mode((res.rows[cfg.name] || []).map(nameOf).filter(Boolean).map(baseSchool)));
     });
 
     // 2) 한 학교 파일인데 다른 학교 줄에 적었는지 (여러 학교를 모은 파일은 빼고, 겹친 줄을 정리하기 전에)
@@ -1065,7 +1067,11 @@ var ENGINE = (function () {
         return vs.some(function (v) { return v !== vs[0]; });
       });
       var group = { row: String(+t + 1), school: nameOf(left[0].row), head: cols.map(colLabel),
-        options: left.map(function (e) { return { file: results[e.i].file, key: results[e.i].file + '|' + cfg.name + '|' + e.row.srcRow, vals: cols.map(function (c) { return e.row[c] ? disp(e.row[c]) : ''; }) }; }) };
+        options: left.map(function (e) {
+          return { file: results[e.i].file, key: results[e.i].file + '|' + cfg.name + '|' + e.row.srcRow, ref: !!results[e.i].ref,
+            own: !!fileMain[e.i] && fileMain[e.i] === baseSchool(nameOf(e.row)),    // 그 줄 학교가 낸 파일
+            vals: cols.map(function (c) { return e.row[c] ? disp(e.row[c]) : ''; }) };
+        }) };
       if (refE) {                                // 이미 취합한 파일에 있는 줄: 그 값을 그대로 두고 학교 파일 줄은 뺌 (골라서 바꿀 수 있음)
         group.ref = true;
         left.forEach(function (e) {
@@ -1225,6 +1231,10 @@ var ENGINE = (function () {
         });
 
         var kept = [], errs = [], flags = [];
+        var cellsOf = function (x) {             // 뺀 줄에 보일 값: 목록형은 학교명과 답 칸, 아니면 직접 적힌 값
+          var q = roster ? x.typed.filter(function (t) { return roster.cols.indexOf(t[0]) < 0 || t[0] === cfg.schoolCols[0]; }) : x.typed;
+          return q.slice(0, 10).map(function (t) { return disp(get(ws, x.r, t[0])).slice(0, 16); });
+        };
         // 이미 취합한 파일이 이 도구로 저장한 결과면 오른쪽 「제출파일」 칸의 원래 파일 이름을 살림
         var refFileCol = -1;
         if (res.ref) for (var fc2 = cfg.lastCol + 1; fc2 <= cfg.lastCol + 3; fc2++) {
@@ -1237,9 +1247,9 @@ var ENGINE = (function () {
           }
           if (!x.inc) {
             if (x.dropped) {
-              res.excluded[cfg.name].push({ r: x.r, why: '같은 줄을 다른 파일 것으로 골라 뺌', cells: x.typed.slice(0, 10).map(function (q) { return disp(get(ws, x.r, q[0])).slice(0, 16); }), key: res.file + '|' + cfg.name + '|' + x.r, dropped: true });
+              res.excluded[cfg.name].push({ r: x.r, why: '같은 줄을 다른 파일 것으로 골라 뺌', cells: cellsOf(x), key: res.file + '|' + cfg.name + '|' + x.r, dropped: true });
             } else if (x.kind === 'example' || x.showOut) {
-              var cells = x.typed.slice(0, 10).map(function (q) { return disp(get(ws, x.r, q[0])).slice(0, 16); });   // 직접 적힌 값만
+              var cells = cellsOf(x);   // 직접 적힌 값만
               res.excluded[cfg.name].push({ r: x.r, why: x.why || '예시로 판단', cells: cells, key: res.file + '|' + cfg.name + '|' + x.r });
             }
             return;
@@ -1303,6 +1313,7 @@ var ENGINE = (function () {
         r.school = '여러 학교 (' + r.multi + '곳)';
         r.infos.push('여러 학교를 모은 파일');
       }
+      if (r.fileSchool && !r.multi && !r.ref) r.school = r.fileSchool;   // 남의 줄까지 적었어도 파일 이름의 학교로
       if (!r.school && r.nameHint) r.school = r.nameHint;
       if (!r.school && r.fileSchool) r.school = r.fileSchool;
       if (r.school) r.schoolFound = true;
@@ -2415,13 +2426,15 @@ if (typeof module !== 'undefined') module.exports = STYLED;
       (s.refDup ? ' 그 파일에 똑같이 있는 줄 ' + s.refDup + '개는 학교 파일에서 넣지 않았습니다.' : '') +
       (s.dupDropped ? ' 여러 파일에 똑같이 들어 있던 줄 ' + s.dupDropped + '개는 한 줄만 남겼습니다.' : '') +
       (s.missing.length ? ' 양식 목록에 있는데 파일이 오지 않은 학교가 <b>' + s.missing.length + '곳</b> 있습니다(학교별 현황 맨 아래).' : '');
+    // 숫자 칸이 곧 탭: 누르면 아래에 그 내용이 열림
+    var card = function (tab, cls, n, label) {
+      return '<button type="button" role="tab" data-tab="' + tab + '" class="' + cls + '" aria-selected="' + (curTab === tab) + '"><b>' + n + '</b><span>' + label + '</span></button>';
+    };
     $('ledger').innerHTML =
-      '<div><b>' + s.results.length + '</b><span>받은 파일</span></div>' +
-      '<div><b>' + total + '</b><span>모인 줄</span></div>' +
-      '<div class="' + (s.excludedCount ? 'warn' : '') + '"><b>' + s.excludedCount + '</b><span>뺀 줄 (예시로 판단)</span></div>' +
-      '<div class="' + (s.issueCount ? 'bad' : '') + '"><b>' + s.issueCount + '</b><span>확인 필요</span></div>';
-    $('cntOut').textContent = s.excludedCount;
-    $('cntIss').textContent = s.issueCount;
+      card('schools', '', s.results.length, '받은 파일 · 학교별 현황') +
+      card('preview', '', total, '모인 줄 · 미리보기') +
+      card('out', s.excludedCount ? 'warn' : '', s.excludedCount, '뺀 줄') +
+      card('issues', s.issueCount ? 'bad' : '', s.issueCount, '확인 필요');
     var anyCard = s.sheets.some(function (c) { return c.mode === 'card'; });
     $('downloadCard').classList.toggle('hidden', !anyCard);
     showTab(curTab);
@@ -2429,7 +2442,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
 
   function showTab(tab) {
     curTab = tab;
-    Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) { b.setAttribute('aria-selected', b.getAttribute('data-tab') === tab ? 'true' : 'false'); });
+    Array.prototype.forEach.call(document.querySelectorAll('#ledger [data-tab]'), function (b) { b.setAttribute('aria-selected', b.getAttribute('data-tab') === tab ? 'true' : 'false'); });
     var s = summary, h = '';
     if (!s) return;
     if (tab === 'preview') h = previewHtml();
@@ -2470,24 +2483,49 @@ if (typeof module !== 'undefined') module.exports = STYLED;
         r.issues.forEach(function (m) {
           var id = n++; if (m.table) issueTables[id] = m.table; if (m.choose) issueChoose[id] = m.choose;
           iss.push('<tr><td><b>' + esc(r.school) + '</b><br><span style="font-size:12px;color:var(--sub)">' + esc(r.file) + '</span></td><td>' + esc(m.t) + '</td><td>' + esc(m.a || '') +
-            (m.table ? ' <button class="link" data-iss="' + id + '">해당 내용 보기</button><div class="hidden" id="iss' + id + '"></div>' : '') + '</td></tr>');
+            (m.table ? ' <button class="link" data-iss="' + id + '">해당 내용 보기</button><div class="hidden isswrap" id="iss' + id + '"></div>' : '') + '</td></tr>');
         });
       });
-      h = iss.length ? '<div class="tbl"><table class="list"><thead><tr><th style="width:24%">학교</th><th style="width:22%">확인 사항</th><th>내용</th></tr></thead><tbody>' + iss.join('') + '</tbody></table></div>'
+      var allGroups = [];
+      issueChoose.forEach(function (gs) { (gs || []).forEach(function (g) { if (allGroups.indexOf(g) < 0) allGroups.push(g); }); });
+      var allKeys = ownPick(allGroups), topBtn = '';
+      if (allKeys.length) {
+        pickReg.push(allKeys);
+        topBtn = '<p class="lead" style="margin:0 0 10px">같은 줄을 여러 파일이 다르게 적은 곳이 있습니다. 학교가 남의 줄까지 적은 경우라면 ' +
+          '<button type="button" class="solid" style="padding:6px 14px;font-size:13px" data-pick="' + (pickReg.length - 1) + '">줄마다 그 학교 파일 것으로 모두 고르기</button></p>';
+      }
+      h = iss.length ? topBtn + '<div class="tbl"><table class="list iss"><thead><tr><th>학교</th><th>확인 사항</th><th>내용</th></tr></thead><tbody>' + iss.join('') + '</tbody></table></div>'
         : '<div class="empty">확인할 사항이 없습니다.</div>';
     }
     $('panel').innerHTML = h;
   }
   var issueTables = [], issueChoose = [], pickReg = [];
   // 같은 줄을 다르게 적은 파일들: 다른 칸을 나란히 보여 주고 「이 파일 것 쓰기」
+  // 줄마다 그 줄 학교가 낸 파일 것만 남기기 (취합본과 다른 줄은 빼고)
+  function ownPick(groups) {
+    var keys = [];
+    groups.forEach(function (g) {
+      if (g.ref) return;
+      var own = g.options.filter(function (o) { return o.own; });
+      if (own.length !== 1) return;
+      g.options.forEach(function (o) { if (o !== own[0]) keys.push(o.key); });
+    });
+    return keys;
+  }
   function chooseHtml(groups) {
-    return groups.map(function (g) {
-      return '<p style="margin:10px 0 4px;font-size:13px"><b>양식 ' + esc(g.row) + '행</b> · ' + esc(g.school) + (g.head.length ? '' : ' (답 칸은 같고 미리 채워진 칸만 다름)') + '</p>' +
+    var all = ownPick(groups), top = '';
+    if (all.length && groups.length > 1) {
+      pickReg.push(all);
+      top = '<p style="margin:8px 0"><button type="button" class="solid" style="padding:6px 14px;font-size:13px" data-pick="' + (pickReg.length - 1) + '">줄마다 그 학교 파일 것으로 모두 고르기</button></p>';
+    }
+    return top + groups.map(function (g) {
+      return '<p style="margin:12px 0 4px;font-size:13.5px"><b>' + esc(g.school) + ' 줄</b> <span style="color:var(--sub)">(양식 ' + esc(g.row) + '행)</span>' + (g.head.length ? '' : ' <span style="color:var(--sub)">답 칸은 같고 미리 채워진 칸만 다름</span>') + '</p>' +
         '<table class="mini"><thead><tr><th>파일</th>' + g.head.map(function (x) { return '<th>' + esc(x) + '</th>'; }).join('') + '<th></th></tr></thead><tbody>' +
         g.options.map(function (o) {
           var id = pickReg.length;
           pickReg.push(g.options.filter(function (x) { return x !== o; }).map(function (x) { return x.key; }));
-          return '<tr><td>' + esc(o.file) + '</td>' + o.vals.map(function (v) { return '<td>' + esc(v) + '</td>'; }).join('') +
+          var tag = o.own ? ' <span class="tag ok" style="font-size:11px;padding:0 7px">이 학교 파일</span>' : (o.ref ? ' <span class="tag" style="font-size:11px;padding:0 7px;background:var(--mint);color:var(--teal)">취합본</span>' : '');
+          return '<tr><td>' + esc(o.file) + tag + '</td>' + o.vals.map(function (v) { return '<td>' + esc(v) + '</td>'; }).join('') +
             '<td><button type="button" class="link" data-pick="' + id + '">이 파일 것 쓰기</button></td></tr>';
         }).join('') + '</tbody></table>';
     }).join('');
@@ -2534,7 +2572,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
       '<div class="gridbox plain">' + h + '</div>';
   }
 
-  $('tabs').addEventListener('click', function (e) {
+  $('ledger').addEventListener('click', function (e) {
     var b = e.target.closest ? e.target.closest('[data-tab]') : null;
     if (b) showTab(b.getAttribute('data-tab'));
   });
