@@ -201,7 +201,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
 <div class="bar"><div class="bar-in">
   <div class="brand">
     <h1>엑셀 취합기</h1>
-    <span class="ver">v2.2</span>
+    <span class="ver">v2.3</span>
     <span class="dept">학교에서 받은 같은 양식의 엑셀 파일을 하나로 모읍니다</span>
   </div>
   <div class="offline">
@@ -308,7 +308,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
   <div class="fcols">
     <div>
       <b>엑셀 취합기</b>
-      <span>v2.2 · 2026-10-07</span>
+      <span>v2.3 · 2026-10-07</span>
     </div>
     <div>
       <b>어떻게 모으나요</b>
@@ -899,6 +899,33 @@ var ENGINE = (function () {
     return rows;
   }
 
+  /* 목록형 양식 점검: 학교가 엉뚱한 줄을 고치지 않았는지
+       - 한 파일에서 모인 줄의 학교명이 서로 다르면 (병설유치원은 같은 학교로 봄)
+       - 양식의 같은 줄을 두 파일 이상이 고쳤으면 */
+  function baseSchool(n) { return norm(n).replace(/병설유치원$/, '').replace(/(초등학교|중학교|고등학교|유치원|학교)$/, ''); }
+  function checkRoster(cfg, results) {
+    var sc = (cfg.schoolCols || [])[0], owners = {};
+    results.forEach(function (res, i) {
+      var rows = res.rows[cfg.name] || [];
+      rows.forEach(function (row) { if (row.tplRow != null) (owners[row.tplRow] = owners[row.tplRow] || []).push(i); });
+      if (sc == null || rows.length < 2) return;
+      var names = rows.map(function (row) { return row[sc] ? disp(row[sc]) : ''; });
+      var main = mode(names.filter(Boolean).map(baseSchool));
+      var odd = [];
+      rows.forEach(function (row, k) { if (names[k] && baseSchool(names[k]) !== main) odd.push([String(row.srcRow + 1), names[k]]); });
+      if (odd.length) res.issues.push({ t: '다른 학교 줄에도 적음', a: '"' + cfg.name + '" 시트. 이 파일에서 모인 줄 가운데 학교명이 다른 줄이 있습니다. 실수로 다른 학교 줄에 적었는지 확인하세요.', table: { head: ['행', '학교명'], body: odd.slice(0, 8) } });
+    });
+    var clash = {};
+    Object.keys(owners).forEach(function (t) {
+      var u = owners[t].filter(function (v, k, a) { return a.indexOf(v) === k; });
+      if (u.length < 2) return;
+      u.forEach(function (i) { (clash[i] = clash[i] || []).push([String(+t + 1), u.filter(function (j) { return j !== i; }).map(function (j) { return results[j].file; }).join(', ')]); });
+    });
+    Object.keys(clash).forEach(function (i) {
+      results[i].issues.push({ t: '다른 파일과 같은 줄을 고침', a: '"' + cfg.name + '" 시트. 양식의 같은 줄을 두 파일 이상이 고쳤습니다. 결과에 두 줄 모두 들어 있으니 어느 쪽이 맞는지 확인하세요.', table: { head: ['양식의 행', '같이 고친 파일'], body: clash[i].slice(0, 8) } });
+    });
+  }
+
   function merge(cfgs, tplWb, files, opts) {
     opts = opts || {};
     var force = opts.force || {};
@@ -1033,6 +1060,7 @@ var ENGINE = (function () {
           }
           var row = [];
           row.srcRow = x.r;
+          row.tplRow = x.t <= bounds(tplWs).r ? x.t : null;   // 양식의 몇 번째 줄을 고친 것인지 (학교가 추가한 줄은 없음)
           row.note = x.forced ? '직접 포함' : '';
           for (var c3 = 0; c3 <= cfg.lastCol; c3++) {
             var cell = get(ws, x.r, c3);
@@ -1066,6 +1094,8 @@ var ENGINE = (function () {
         if (errs.length) res.issues.push({ t: '오류값 ' + errs.length + '칸', a: '"' + cfg.name + '" 시트. 학교명을 잘못 적어 조회에 실패했거나 수식이 깨진 경우입니다.', table: cellSample(ws, errs) });
         if (flags.length) res.issues.push({ t: '서식 검증결과 재검토', a: '"' + cfg.name + '" 시트. 기준 초과나 금액 불일치일 수 있습니다.', table: cellSample(ws, flags) });
       });
+
+      if (roster) checkRoster(cfg, results);
 
       var ns = results.map(function (r) { return r.counts[cfg.name] || 0; }).filter(function (n) { return n > 0; });
       cfg.filled = ns.length;
