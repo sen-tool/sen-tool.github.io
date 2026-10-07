@@ -430,7 +430,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.2.4 · 2026.10.07 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.2.5 · 2026.10.07 수정</a></div>
 </aside>
 
 <div class="main">
@@ -489,6 +489,14 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.2.5</b><span>2026.10.07</span></div>
+          <ul>
+            <li>엑셀 취합기: 학교가 시트 이름을 바꿔 보내도(예: 학교명으로) 제목 줄 내용으로 같은 시트를 찾음. 빈 양식 없이 취합할 때 그런 파일을 기준으로 삼지 않음</li>
+            <li>엑셀 취합기: 숨긴 시트가 있는 양식에서 시트 순서로 찾을 때 엉뚱한 시트를 보던 문제 고침. 제목 줄이 전혀 다른 시트는 같은 시트로 보지 않음</li>
+            <li>엑셀 취합기: 시트를 못 찾았을 때 그 파일에 어떤 시트가 있는지 함께 보여 줌</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.2.4</b><span>2026.10.07</span></div>
           <ul>
@@ -812,7 +820,7 @@
   });
 
   (function () {
-    var VERSION = '1.2.4';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var VERSION = '1.2.5';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
     var UPDATED = '2026.10.07';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {

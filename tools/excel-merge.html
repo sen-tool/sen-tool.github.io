@@ -201,7 +201,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
 <div class="bar"><div class="bar-in">
   <div class="brand">
     <h1>엑셀 취합기</h1>
-    <span class="ver">v2.4</span>
+    <span class="ver">v2.5</span>
     <span class="dept">학교에서 받은 같은 양식의 엑셀 파일을 하나로 모읍니다</span>
   </div>
   <div class="offline">
@@ -308,7 +308,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
   <div class="fcols">
     <div>
       <b>엑셀 취합기</b>
-      <span>v2.4 · 2026-10-07</span>
+      <span>v2.5 · 2026-10-07</span>
     </div>
     <div>
       <b>어떻게 모으나요</b>
@@ -458,12 +458,16 @@ var ENGINE = (function () {
   }
   var sheetCache = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
 
-  // 양식 시트와 같은 시트를 찾는다: 이름 그대로 → 핵심 이름 → 비슷한 이름 → 보이는 시트 순서
-  function findSheet(wb, name, idx) {
+  // 양식 시트와 같은 시트를 찾는다: 이름 그대로 → 핵심 이름 → 비슷한 이름 → 제목 줄 내용 → 보이는 시트 순서
+  //   vidx: 양식에서 그 시트가 보이는 시트 가운데 몇 번째인지 (숨긴 시트는 세지 않음)
+  //   head: { ws, he, lastCol } 양식 시트의 제목 줄 (이름을 바꿔 보낸 시트를 내용으로 찾을 때)
+  //   돌려주는 by: 'name'(이름으로 찾음) 또는 'content'/'order'(이름이 달라 내용·순서로 찾음)
+  function findSheetBy(wb, name, vidx, head) {
     if (!wb) return null;
+    var mk = name + '|' + (head ? head.he + ':' + head.lastCol : '-');
     var memo = sheetCache ? sheetCache.get(wb) : null;
-    if (memo && memo.hasOwnProperty(name)) return memo[name] ? wb.Sheets[memo[name]] : null;
-    var hit = null;
+    if (memo && memo.hasOwnProperty(mk)) return memo[mk];
+    var hit = null, by = 'name';
     if (wb.Sheets[name]) hit = name;
     if (!hit) {
       var n = norm(name);
@@ -482,13 +486,34 @@ var ENGINE = (function () {
       });
       if (best >= 0.5) hit = bestName;
     }
-    if (!hit && typeof idx === 'number') {
-      var vis = visibleNames(wb);
-      if (vis[idx]) hit = vis[idx];
+    var simOf = null;
+    if (!hit && head && head.ws) {          // 시트 이름을 바꿔 보냈으면 제목 줄이 같은 시트
+      var refSig = sig(head.ws, head.he, head.lastCol), bs = 0, bn = null;
+      simOf = {};
+      if (refSig.replace(/\u0001/g, '')) wb.SheetNames.forEach(function (s, i) {
+        if (isHidden(wb, i)) return;
+        var ws = wb.Sheets[s], b = bounds(ws);
+        for (var r = Math.max(0, head.he - 5); r <= Math.min(b.r, head.he + 30); r++) {
+          var sc = similarity(refSig, sig(ws, r, head.lastCol));
+          if (sc > (simOf[s] || 0)) simOf[s] = sc;
+          if (sc > bs) { bs = sc; bn = s; }
+        }
+      });
+      if (bs >= 0.8) { hit = bn; by = 'content'; }
     }
-    if (sheetCache) { if (!memo) { memo = {}; sheetCache.set(wb, memo); } memo[name] = hit; }
-    return hit ? wb.Sheets[hit] : null;
+    if (!hit && typeof vidx === 'number' && vidx >= 0) {
+      var vis = visibleNames(wb);
+      // 같은 순서의 시트라도 제목 줄이 절반 넘게 달라면 다른 서식으로 봄
+      if (vis[vidx] && (!simOf || (simOf[vis[vidx]] || 0) >= 0.5)) { hit = vis[vidx]; by = 'order'; }
+    }
+    var res = hit ? { name: hit, ws: wb.Sheets[hit], by: by } : null;
+    if (sheetCache) { if (!memo) { memo = {}; sheetCache.set(wb, memo); } memo[mk] = res; }
+    return res;
   }
+  function findSheet(wb, name, vidx, head) { var f = findSheetBy(wb, name, vidx, head); return f ? f.ws : null; }
+  // 학교 파일에서 이 양식 시트에 해당하는 시트
+  function headOf(cfg) { return cfg.headWs ? { ws: cfg.headWs, he: cfg.he, lastCol: cfg.lastCol } : null; }
+  function sheetOf(wb, cfg) { return findSheet(wb, cfg.name, cfg.vidx, headOf(cfg)); }
   // 학교가 보낸 시트 이름별로 결과 시트를 따로 만듦
   //  - 양식과 같은 이름으로 보낸 학교가 있으면 그 묶음이 양식 시트 자리에 들어가고, 없으면 가장 많이 쓴 이름이 그 자리에 들어감
   //  - 엑셀에 쓸 수 없는 이름이거나 다른 시트 이름과 겹치면 첫 묶음에 합침
@@ -496,7 +521,9 @@ var ENGINE = (function () {
   function nameFromSchools(cfg, tplWb, files, results, usedOut) {
     var order = [], cnt = {};
     files.forEach(function (f, i) {
-      var m = matchedSheetName(f.wb, cfg.name, cfg.idx);
+      var fb = findSheetBy(f.wb, cfg.name, cfg.vidx, headOf(cfg));
+      // 이름이 전혀 달라 내용·순서로 찾은 시트(예: 시트 이름을 학교명으로 바꿈)는 양식 시트와 한 묶음
+      var m = !fb ? null : (fb.by === 'name' ? fb.name : cfg.name);
       results[i].sheetOf = results[i].sheetOf || {};
       results[i].sheetOf[cfg.name] = m;
       if (!m) return;
@@ -525,12 +552,6 @@ var ENGINE = (function () {
   }
   function groupsOf(cfg) { return cfg.groups && cfg.groups.length ? cfg.groups : [{ name: cfg.outName || cfg.name, members: [] }]; }
 
-  function matchedSheetName(wb, name, idx) {
-    var ws = findSheet(wb, name, idx);
-    if (!ws) return null;
-    for (var i = 0; i < wb.SheetNames.length; i++) if (wb.Sheets[wb.SheetNames[i]] === ws) return wb.SheetNames[i];
-    return null;
-  }
 
   // 제목 행 아래에 딸린 작은 제목 행(병합된 칸 아래의 세부 항목)까지만 제목으로 포함
   function extendHeader(ref, K, maxC, maxR) {
@@ -632,6 +653,8 @@ var ENGINE = (function () {
       var b = bounds(ref);
       var cfg = { name: name, idx: idx, mode: 'table', de: -1 };
       cfg.hiddenTpl = isHidden(tplWb, idx);
+      cfg.vidx = cfg.hiddenTpl ? null : visibleNames(tplWb).indexOf(name);
+      cfg.headWs = ref;
       if (b.r < 0) { cfg.include = false; cfg.empty = true; cfg.hs = 0; cfg.he = 0; cfg.ds = 1; cfg.lastCol = 0; cfg.ex = []; cfg.schoolCols = []; cfg.serialCols = []; return cfg; }
       var he = structureHeader(ref, b.c, b.r);
       var ds = he + 1;
@@ -649,7 +672,7 @@ var ENGINE = (function () {
       for (var r = hs; r <= he && !kw; r++) kw = hasHeadWord(ref, r, b.c);
       cfg.suggestCard = !kw;
       cfg.tplLastRow = b.r;
-      cfg.fileCount = files.filter(function (f) { return !!findSheet(f.wb, name, idx); }).length;
+      cfg.fileCount = files.filter(function (f) { return !!sheetOf(f.wb, cfg); }).length;
       cfg.include = !cfg.hiddenTpl;
       return cfg;
     });
@@ -657,7 +680,7 @@ var ENGINE = (function () {
 
   // 범위를 사람이 바꾼 뒤 다시 맞추기
   function refit(cfg, tplWb) {
-    var ref = tplWb ? findSheet(tplWb, cfg.name, cfg.idx) : null;
+    var ref = tplWb ? findSheet(tplWb, cfg.name) : null;
     if (!ref) return;
     if (cfg.hs > cfg.he) cfg.hs = cfg.he;
     if (cfg.ds <= cfg.he) cfg.ds = cfg.he + 1;
@@ -738,9 +761,15 @@ var ENGINE = (function () {
     return XLSX.utils.encode_cell({ r: r, c: c });
   }
 
+  // 양식 시트를 학교 파일에서 찾지 못했을 때: 그 파일에 어떤 시트가 있는지 함께 보여 줌
+  function noSheet(cfg, wb) {
+    return { t: '「' + cfg.name + '」 시트를 찾지 못함', a: '이 파일에서 양식의 「' + cfg.name + '」 시트와 이름도, 제목 줄도 같은 시트가 없습니다. 다른 서식으로 냈거나 시트를 지운 파일인지 확인하고, 맞으면 재제출을 요청하세요.',
+      table: { head: ['이 파일의 시트'], body: visibleNames(wb).slice(0, 8).map(function (n) { return [n]; }) } };
+  }
+
   function mergeCard(cfg, tplWb, files, results) {
-    var tplWs = tplWb ? findSheet(tplWb, cfg.name, cfg.idx) : null;
-    var wsList = files.map(function (f) { return findSheet(f.wb, cfg.name, cfg.idx); });
+    var tplWs = tplWb ? findSheet(tplWb, cfg.name) : null;
+    var wsList = files.map(function (f) { return sheetOf(f.wb, cfg); });
     var ref = tplWs || wsList.filter(Boolean)[0];
     if (!ref) return;
     var rb = bounds(ref), maxR = rb.r, maxC = Math.min(rb.c, 60);
@@ -776,7 +805,7 @@ var ENGINE = (function () {
     results.forEach(function (res, i) {
       var vals = perFile[i];
       res.card = res.card || {};
-      if (!vals) { res.issues.push({ t: '"' + cfg.name + '" 시트 없음', a: '시트를 삭제했거나 이름을 바꾼 파일입니다. 재제출을 요청하세요.' }); res.counts[cfg.name] = 0; return; }
+      if (!vals) { res.issues.push(noSheet(cfg, files[i].wb)); res.counts[cfg.name] = 0; return; }
       var n = Object.keys(vals).length;
       res.card[cfg.name] = keys.map(function (k) { return vals[k] || null; });
       res.counts[cfg.name] = n ? 1 : 0;
@@ -973,9 +1002,9 @@ var ENGINE = (function () {
       cfg.missing = null;
       nameFromSchools(cfg, tplWb, files, results, usedOut);
       if (cfg.mode === 'card') { mergeCard(cfg, tplWb, files, results); return; }
-      var tplWs = tplWb ? findSheet(tplWb, cfg.name, cfg.idx) : null;
+      var tplWs = tplWb ? findSheet(tplWb, cfg.name) : null;
       if (!tplWs) return;
-      var wsList = files.map(function (f) { return findSheet(f.wb, cfg.name, cfg.idx); });
+      var wsList = files.map(function (f) { return sheetOf(f.wb, cfg); });
       cfg.refSig = headerSig(tplWs, cfg);
 
       // 예시 줄 정보
@@ -1040,7 +1069,7 @@ var ENGINE = (function () {
         var res = results[i], ws = wsList[i];
         res.counts[cfg.name] = 0;
         res.excluded[cfg.name] = [];
-        if (!ws) { res.issues.push({ t: '"' + cfg.name + '" 시트 없음', a: '시트를 지웠거나 이름을 바꾼 파일입니다. 재제출을 요청하세요.' }); return; }
+        if (!ws) { res.issues.push(noSheet(cfg, files[i].wb)); return; }
         if (p.loc.weak) res.issues.push({ t: '표 제목 줄이 양식과 다름', a: '"' + cfg.name + '" 시트. 미리보기에서 이 파일의 줄이 제대로 모였는지 확인하세요.', table: headerCompare(tplWs, ws, cfg, p.loc.off) });
         else if (p.loc.warn) res.issues.push({ t: '표 제목 줄 일부가 다름', a: '"' + cfg.name + '" 시트. 열이 밀리지 않았는지 확인하세요.', table: headerCompare(tplWs, ws, cfg, p.loc.off) });
         res.offsets[cfg.name] = p.loc.off;
@@ -1334,9 +1363,9 @@ var ENGINE = (function () {
     XLSX.utils.book_append_sheet(wb, w2, safeName('확인필요', used));
 
     sum.sheets.forEach(function (cfg) {
-      var tplWs = sum.tplWb ? findSheet(sum.tplWb, cfg.name, cfg.idx) : null;
+      var tplWs = sum.tplWb ? findSheet(sum.tplWb, cfg.name) : null;
       var ref = tplWs;
-      if (!ref) sum.files.some(function (f) { var w = findSheet(f.wb, cfg.name, cfg.idx); if (w) { ref = w; return true; } return false; });
+      if (!ref) sum.files.some(function (f) { var w = sheetOf(f.wb, cfg); if (w) { ref = w; return true; } return false; });
       groupsOf(cfg).forEach(function (g) {
       var ws = {}, merges = [], top = cfg.he;   // 양식의 1행 ~ 제목 끝 행을 그대로 유지
       for (var r = 0; r <= top; r++) for (var c = 0; c <= cfg.lastCol; c++) {
@@ -1402,7 +1431,7 @@ var ENGINE = (function () {
 
   // 취합 결과 미리보기: 양식 제목 + 모인 줄
   function mergedPreview(cfg, sum, maxRows) {
-    var ref = sum.tplWb ? findSheet(sum.tplWb, cfg.name, cfg.idx) : null;
+    var ref = sum.tplWb ? findSheet(sum.tplWb, cfg.name) : null;
     if (!ref) return null;
     var head = gridData(ref, cfg.hs, cfg.he, cfg.lastCol), body = [], total = 0;
     sum.results.forEach(function (res) {
@@ -1444,10 +1473,12 @@ var ENGINE = (function () {
   }
   // 기준 파일: 서식을 살릴 수 있는 .xlsx 중 칸이 가장 많이 채워진 파일 (다른 학교 줄을 지우고 보낸 파일은 피함)
   function pickBase(files) {
-    var best = 0, bestN = -1;
+    var best = 0, bestN = -1, used = {};
+    files.forEach(function (f) { visibleNames(f.wb).forEach(function (s) { used[s] = (used[s] || 0) + 1; }); });
     files.forEach(function (f, i) {
-      var n = /\.(xlsx|xlsm)$/i.test(f.name || '') ? 1e9 : 0;
-      visibleNames(f.wb).forEach(function (s) { n += Object.keys(f.wb.Sheets[s] || {}).length; });
+      // .xlsx 우선 → 다른 파일들과 시트 이름이 같은 파일 (시트 이름을 바꿔 보낸 파일은 피함) → 칸이 많이 채워진 파일
+      var n = /\.(xlsx|xlsm)$/i.test(f.name || '') ? 1e12 : 0;
+      visibleNames(f.wb).forEach(function (s) { n += used[s] * 1e6 + Object.keys(f.wb.Sheets[s] || {}).length; });
       if (n > bestN) { bestN = n; best = i; }
     });
     return best;
@@ -1460,7 +1491,9 @@ var ENGINE = (function () {
     base.SheetNames.forEach(function (name, idx) {
       var ws = base.Sheets[name], out = {}, cl = [];
       var others = [];
-      files.slice(1).forEach(function (f) { var o = findSheet(f.wb, name, idx); if (o) others.push(o); });
+      var bb = bounds(ws), vidx = isHidden(base, idx) ? null : visibleNames(base).indexOf(name);
+      var head = bb.r >= 0 ? { ws: ws, he: structureHeader(ws, bb.c, bb.r), lastCol: Math.min(bb.c, MAX_SCAN_COLS) } : null;
+      files.slice(1).forEach(function (f) { var o = findSheet(f.wb, name, vidx, head); if (o) others.push(o); });
       var offs = others.map(function (o) { return alignOffset(ws, o); });
       var b = bounds(ws), he = b.r >= 0 && !others.length ? structureHeader(ws, b.c, b.r) : -1;
       Object.keys(ws).forEach(function (k) {
@@ -1481,7 +1514,7 @@ var ENGINE = (function () {
 
   return { analyze: analyze, refit: refit, merge: merge, gridData: gridData, mergedPreview: mergedPreview, autoTemplate: autoTemplate,
            buildWorkbook: buildWorkbook, buildCardWorkbook: buildCardWorkbook, cardPreview: cardPreview,
-           shiftFormula: shiftFormula, remapFormula: remapFormula, colName: colName, isPlaceholder: isPlaceholder, findSheet: findSheet, bounds: bounds };
+           shiftFormula: shiftFormula, remapFormula: remapFormula, colName: colName, isPlaceholder: isPlaceholder, findSheet: findSheet, sheetOf: sheetOf, bounds: bounds };
 })();
 if (typeof module !== 'undefined') module.exports = ENGINE;
 </script>
@@ -1976,7 +2009,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
       reading -= todo.length;
       if (!tplFile) useAuto();
       if (tplWb) {
-        cfgs.forEach(function (c) { c.fileCount = files.filter(function (x) { return !!ENGINE.findSheet(x.wb, c.name, c.idx); }).length; });
+        cfgs.forEach(function (c) { c.fileCount = files.filter(function (x) { return !!ENGINE.sheetOf(x.wb, c); }).length; });
         remerge();
       }
       refreshSteps();
