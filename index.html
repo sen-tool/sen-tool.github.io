@@ -430,7 +430,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.2.1 · 2026.10.01 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.2.2 · 2026.10.07 수정</a></div>
 </aside>
 
 <div class="main">
@@ -489,6 +489,14 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.2.2</b><span>2026.10.07</span></div>
+          <ul>
+            <li>엑셀 취합기: 학교 목록이 미리 채워진 양식(학교는 자기 줄만 채움)을 학교명·고유번호로 줄을 찾아 견줌. 학교가 정렬하거나 다른 학교 줄을 지워도 제대로 모임</li>
+            <li>엑셀 취합기: 목록형 양식에서 학교명 대신 파일 이름이 나오던 문제 고침</li>
+            <li>엑셀 취합기: 빈 양식 없이 취합할 때, 일부 학교가 줄을 지우거나 정렬해 보내도 양식을 제대로 만듦</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.2.1</b><span>2026.10.01</span></div>
           <ul>
@@ -791,8 +799,8 @@
   });
 
   (function () {
-    var VERSION = '1.2.1';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.10.01';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.2.2';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.10.07';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',

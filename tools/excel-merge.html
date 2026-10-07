@@ -201,7 +201,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
 <div class="bar"><div class="bar-in">
   <div class="brand">
     <h1>엑셀 취합기</h1>
-    <span class="ver">v2.1</span>
+    <span class="ver">v2.2</span>
     <span class="dept">학교에서 받은 같은 양식의 엑셀 파일을 하나로 모읍니다</span>
   </div>
   <div class="offline">
@@ -308,11 +308,11 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
   <div class="fcols">
     <div>
       <b>엑셀 취합기</b>
-      <span>v2.1 · 2026-10-01</span>
+      <span>v2.2 · 2026-10-07</span>
     </div>
     <div>
       <b>어떻게 모으나요</b>
-      <span>빈 양식과 한 줄씩 견줘 학교가 새로 쓴 줄만 가져옵니다. 빈 양식이 없으면 모든 파일에 똑같이 있는 칸을 양식으로 봅니다. 손대지 않은 줄과 예시 줄은 빼고, 뺀 줄은 "뺀 줄"에서 모두 보고 다시 넣을 수 있습니다.</span>
+      <span>빈 양식과 한 줄씩 견줘 학교가 새로 쓴 줄만 가져옵니다. 학교 목록이 미리 채워진 양식은 학교명 등으로 같은 줄을 찾아 견주므로 정렬하거나 줄을 지워도 됩니다. 빈 양식이 없으면 절반 넘는 파일에 똑같이 있는 칸을 양식으로 봅니다. 손대지 않은 줄과 예시 줄은 빼고, 뺀 줄은 "뺀 줄"에서 모두 보고 다시 넣을 수 있습니다.</span>
     </div>
     <div>
       <b>파일은 어디로도 가지 않습니다</b>
@@ -808,13 +808,50 @@ var ENGINE = (function () {
   */
   function typedVal(cell) { return cell && !cell.f ? norm(disp(cell)) : ''; }
 
-  function classify(cfg, tplWs, ws, off, exInfo) {
+  /* 목록형 양식: 학교 목록이 미리 채워져 있고 학교는 자기 줄의 빈칸만 채우는 서식.
+     양식 줄의 80% 이상이 채워진 열이 2개 이상이면 그 열들(학교명·고유번호 등)을 줄의 이름표로 쓴다.
+     학교가 정렬하거나 다른 학교 줄을 지워도 이름표로 양식의 같은 줄을 찾아 견준다. */
+  function rosterOf(cfg, tplWs) {
+    var tb = bounds(tplWs), last = -1, cnt = {};
+    for (var r = cfg.ds; r <= tb.r && (cfg.de < 0 || r <= cfg.de); r++) {
+      var any = false;
+      for (var c = 0; c <= cfg.lastCol; c++) if (typedVal(get(tplWs, r, c))) { any = true; cnt[c] = (cnt[c] || 0) + 1; }
+      if (any) last = r;
+    }
+    var n = last - cfg.ds + 1;
+    if (n < 3) return null;
+    var cols = [];
+    for (var c2 = 0; c2 <= cfg.lastCol; c2++) if ((cnt[c2] || 0) >= n * 0.8) cols.push(c2);
+    if (cols.length < 2) return null;
+    var idx = {};
+    for (var r2 = cfg.ds; r2 <= last; r2++) {
+      var k = rowKey(tplWs, r2, cols);
+      if (k.replace(/\u0001/g, '')) (idx[k] = idx[k] || []).push(r2);
+    }
+    return { cols: cols, idx: idx };
+  }
+  function rowKey(ws, r, cols) { return cols.map(function (c) { return typedVal(get(ws, r, c)); }).join('\u0001'); }
+  function keyShare(ws, r, tplWs, t, cols) {
+    var same = 0;
+    cols.forEach(function (c) { var a = typedVal(get(ws, r, c)); if (a && a === typedVal(get(tplWs, t, c))) same++; });
+    return same / cols.length;
+  }
+
+  function classify(cfg, tplWs, ws, off, exInfo, roster) {
     var b = bounds(ws), tb = bounds(tplWs);
     var skipCols = (cfg.schoolCols || []).concat(cfg.serialCols || []);
     var end = cfg.de >= 0 ? cfg.de + off : Math.max(b.r, tb.r + off);
-    var rows = [];
+    var rows = [], used = {};
     for (var r = cfg.ds + off; r <= end; r++) {
-      var t = r - off, any = false, added = [], deleted = [], refs = {}, hasRange = false, label = false, typed = [];
+      var t = r - off;
+      if (roster) {                           // 목록형: 이름표가 같은 양식 줄과 견줌
+        var hits = roster.idx[rowKey(ws, r, roster.cols)];
+        if (hits) {
+          t = hits.indexOf(r - off) >= 0 && !used[r - off] ? r - off : (hits.filter(function (h) { return !used[h]; })[0] || hits[0]);
+          used[t] = true;
+        } else if (keyShare(ws, r, tplWs, r - off, roster.cols) < 0.7) t = tb.r + 1 + r;   // 양식에 없는 줄(학교가 추가)
+      }
+      var any = false, added = [], deleted = [], refs = {}, hasRange = false, label = false, typed = [];
       for (var c = 0; c <= cfg.lastCol; c++) {
         var cell = get(ws, r, c), tc = t <= tb.r ? get(tplWs, t, c) : null;
         if (cell && disp(cell) !== '') any = true;
@@ -880,6 +917,8 @@ var ENGINE = (function () {
       cfg.refSig = headerSig(tplWs, cfg);
 
       // 예시 줄 정보
+      var roster = rosterOf(cfg, tplWs);
+      cfg.roster = !!roster;
       var exInfo = { rows: {}, sigs: {}, cols: {}, count: 0 };
       (cfg.ex || []).forEach(function (r) {
         exInfo.rows[r] = true; exInfo.count++;
@@ -904,11 +943,11 @@ var ENGINE = (function () {
       var per = wsList.map(function (ws) {
         if (!ws) return null;
         var loc = locate(ws, cfg, cfg.refSig);
-        return { loc: loc, rows: classify(cfg, tplWs, ws, loc.off, exInfo) };
+        return { loc: loc, rows: classify(cfg, tplWs, ws, loc.off, exInfo, roster) };
       });
 
       // 다른 학교 파일에 학교명(또는 가가가 같은 예시 글자)까지 똑같은 줄이 있으면 예시를 그대로 둔 것으로 본다
-      {
+      if (!roster) {
         var tplSchoolVals = {}, tbs = bounds(tplWs);
         for (var sr = cfg.ds; sr <= tbs.r; sr++) cfg.schoolCols.forEach(function (sc) { var v = typedVal(get(tplWs, sr, sc)); if (v) tplSchoolVals[v] = true; });
         var seen = {};
@@ -1009,7 +1048,7 @@ var ENGINE = (function () {
               var sv = disp(get(ws, x.r, sc));
               var tv = typedVal(x.t <= bounds(tplWs).r ? get(tplWs, x.t, sc) : null);
               if (res.school || !sv || sv.charAt(0) === '#' || isPlaceholder(sv)) return;
-              if (norm(sv) === tv || tplNames[norm(sv)]) return;       // 양식에 있던 예시 학교명
+              if (!roster && (norm(sv) === tv || tplNames[norm(sv)])) return;       // 양식에 있던 예시 학교명 (목록형은 학교명이 미리 적혀 있음)
               res.school = sv;
             });
           }
@@ -1312,7 +1351,7 @@ var ENGINE = (function () {
   function colName(c) { return XLSX.utils.encode_col(c); }
 
   /* ---------- 빈 양식 없이: 학교 파일끼리 견줘 양식 만들기 ----------
-     모든 파일에서 같은 자리에 같은 값이 있는 칸(제목·안내문·수식)만 남기고, 파일마다 다른 칸은 비운다.
+     과반수 파일에서 같은 자리에 같은 값이 있는 칸(제목·안내문·수식·미리 채운 목록)만 남기고, 나머지 칸은 비운다.
      파일이 하나뿐이면 제목 줄 아래의 직접 쓴 값을 비운다.
      clear: 비운 칸 주소 목록 (서식 있는 결과 파일에서 같은 칸을 비우는 데 씀) */
   function sameCell(a, b) {
@@ -1336,7 +1375,19 @@ var ENGINE = (function () {
     });
     return best;
   }
+  // 기준 파일: 서식을 살릴 수 있는 .xlsx 중 칸이 가장 많이 채워진 파일 (다른 학교 줄을 지우고 보낸 파일은 피함)
+  function pickBase(files) {
+    var best = 0, bestN = -1;
+    files.forEach(function (f, i) {
+      var n = /\.(xlsx|xlsm)$/i.test(f.name || '') ? 1e9 : 0;
+      visibleNames(f.wb).forEach(function (s) { n += Object.keys(f.wb.Sheets[s] || {}).length; });
+      if (n > bestN) { bestN = n; best = i; }
+    });
+    return best;
+  }
   function autoTemplate(files) {
+    var bi = pickBase(files);
+    files = [files[bi]].concat(files.filter(function (f, i) { return i !== bi; }));
     var base = files[0].wb;
     var wb = { SheetNames: base.SheetNames.slice(), Sheets: {}, Workbook: base.Workbook, auto: true }, clear = {};
     base.SheetNames.forEach(function (name, idx) {
@@ -1348,14 +1399,17 @@ var ENGINE = (function () {
       Object.keys(ws).forEach(function (k) {
         if (k.charAt(0) === '!') { out[k] = ws[k]; return; }
         var x = ws[k], p = XLSX.utils.decode_cell(k);
+        var agree = 1;
+        if (others.length) others.forEach(function (o, i) { if (sameCell(x, get(o, p.r + offs[i], p.c))) agree++; });
+        // 과반수 파일에 같은 값이 있으면 양식으로 봄 (몇몇 학교가 줄을 지우거나 정렬해도 흔들리지 않게)
         var keep = !x || x.t === 'z' || disp(x) === '' ||
-          (others.length ? others.every(function (o, i) { return sameCell(x, get(o, p.r + offs[i], p.c)); }) : (x.f || p.r <= he));
+          (others.length ? agree * 2 > others.length + 1 : (x.f || p.r <= he));
         if (keep) out[k] = x; else cl.push(k);
       });
       wb.Sheets[name] = out;
       clear[name] = cl;
     });
-    return { wb: wb, clear: clear };
+    return { wb: wb, clear: clear, base: files[0] };
   }
 
   return { analyze: analyze, refit: refit, merge: merge, gridData: gridData, mergedPreview: mergedPreview, autoTemplate: autoTemplate,
@@ -1810,24 +1864,20 @@ if (typeof module !== 'undefined') module.exports = STYLED;
       showAutoNote();
       return;
     }
-    // 서식 본보기는 .xlsx 파일로 (옛 .xls는 서식을 살려 쓸 수 없음)
-    var list = files.slice(), bi = 0;
-    list.some(function (f, i) { if (/\.(xlsx|xlsm)$/i.test(f.name)) { bi = i; return true; } return false; });
-    list.unshift(list.splice(bi, 1)[0]);
-    var t = ENGINE.autoTemplate(list);
-    tplWb = t.wb; autoTpl = t.clear; tplBuf = list[0].buf;
+    var t = ENGINE.autoTemplate(files);
+    tplWb = t.wb; autoTpl = t.clear; tplBuf = t.base.buf;
     var prev = activeSheet;
     cfgs = ENGINE.analyze(tplWb, files);
     applyStore();
     activeSheet = cfgOf(prev) ? prev : ((cfgs.filter(function (c) { return c.include; })[0] || cfgs[0] || {}).name || null);
-    showAutoNote(list[0].name);
+    showAutoNote(t.base.name);
   }
   function showAutoNote(base) {
     var el = $('autoNote');
     if (!autoTpl) { el.classList.add('hidden'); $('step3Title').textContent = '빈 양식 확인'; return; }
     el.innerHTML = files.length === 1
       ? '빈 양식 없이 취합합니다. 받은 파일이 <b>1개</b>뿐이라 제목 줄 아래에 적힌 값은 모두 학교가 쓴 것으로 봅니다. 파일을 더 넣거나 빈 양식을 넣으면 더 정확합니다.'
-      : '빈 양식 없이 받은 파일 <b>' + files.length + '개</b>를 서로 견줘 양식을 만들었습니다. 모든 파일에 똑같이 있는 칸은 양식, 파일마다 다른 칸은 학교가 쓴 것으로 봅니다.' +
+      : '빈 양식 없이 받은 파일 <b>' + files.length + '개</b>를 서로 견줘 양식을 만들었습니다. 절반 넘는 파일에 똑같이 있는 칸은 양식, 나머지는 학교가 쓴 것으로 봅니다.' +
         (base ? ' 결과 파일 서식은 「' + esc(base) + '」를 따릅니다.' : '') + ' 결과가 이상하면 빈 양식을 넣으세요.';
     el.classList.remove('hidden');
     $('step3Title').textContent = '양식 확인 (받은 파일로 만든 양식)';
