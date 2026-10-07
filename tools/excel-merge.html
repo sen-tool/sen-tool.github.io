@@ -201,7 +201,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
 <div class="bar"><div class="bar-in">
   <div class="brand">
     <h1>엑셀 취합기</h1>
-    <span class="ver">v2.6</span>
+    <span class="ver">v2.7</span>
     <span class="dept">학교에서 받은 같은 양식의 엑셀 파일을 하나로 모읍니다</span>
   </div>
   <div class="offline">
@@ -308,7 +308,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
   <div class="fcols">
     <div>
       <b>엑셀 취합기</b>
-      <span>v2.6 · 2026-10-07</span>
+      <span>v2.7 · 2026-10-07</span>
     </div>
     <div>
       <b>어떻게 모으나요</b>
@@ -897,6 +897,8 @@ var ENGINE = (function () {
           if (tv) { typed.push([c, tv]); if (TOTAL_WORD.test(tv)) label = true; }
         }
         if (isDiff(tc, cell)) {
+          // 목록형: 미리 채워진 칸(학교명·주소·날짜 등)이 다른 건 엑셀·한셀이 모양을 바꿔 저장한 경우가 많아 적은 것으로 보지 않음
+          if (roster && t <= tb.r && roster.cols.indexOf(c) >= 0) continue;
           if (typedVal(cell)) added.push(c); else deleted.push(c);
         }
       }
@@ -1151,6 +1153,10 @@ var ENGINE = (function () {
           kept.push(row);
         });
         res.rows[cfg.name] = kept;
+        if (roster && kept.length && cfg.schoolCols.length) {      // 목록형: 모인 줄에 가장 많이 나온 학교명
+          var nm = mode(kept.map(function (row) { var v = row[cfg.schoolCols[0]]; return v ? disp(v) : ''; }).filter(Boolean));
+          if (nm) res.school = nm;
+        }
         res.counts[cfg.name] = kept.length;
         if (!res.nameHint) {                      // 모인 줄이 없어도 학교명은 찾아둔다
           p.rows.forEach(function (x) {
