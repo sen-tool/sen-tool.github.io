@@ -61,6 +61,8 @@ button:focus-visible,input:focus-visible,select:focus-visible,.zone:focus-visibl
 .chip.warn{background:var(--warn-bg);border-color:#EBCE92;color:var(--warn)}
 .refbox{margin-top:14px;padding:12px 14px;border:1px solid var(--rule);border-radius:var(--r);background:#fbfaf7;font-size:13.5px;display:flex;flex-direction:column;gap:6px}
 .refbox .sub{color:var(--sub);font-size:12.5px}
+.refbox{border-style:dashed;cursor:pointer;transition:background .15s,border-color .15s}
+.refbox:hover,.refbox.over{border-color:var(--teal);background:#e3edf7}
 .refbox .loaded{padding:8px 12px}
 .status{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin:0 0 12px;color:var(--sub);font-size:13.5px}
 .hidden{display:none !important}
@@ -204,7 +206,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
 <div class="bar"><div class="bar-in">
   <div class="brand">
     <h1>엑셀 취합기</h1>
-    <span class="ver">v3.0</span>
+    <span class="ver">v3.1</span>
     <span class="dept">학교에서 받은 같은 양식의 엑셀 파일을 하나로 모읍니다</span>
   </div>
   <div class="offline">
@@ -245,9 +247,9 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
       </div>
     </div>
     <div class="tray" id="tray"></div>
-    <div class="refbox" id="refBox">
+    <div class="refbox" id="refBox" tabindex="0" role="button" aria-label="이미 취합해 둔 파일 선택">
       <div><b>이미 취합해 둔 파일</b> <span class="sub">(선택)</span></div>
-      <div class="sub">넣으면 그 파일의 줄은 그대로 두고, 학교 파일에서 <b>거기 없는 줄만</b> 더합니다.</div>
+      <div class="sub">여기에 끌어다 놓거나 파일을 고르세요. 그 파일의 줄은 그대로 두고, 학교 파일에서 <b>거기 없는 줄만</b> 더합니다.</div>
       <div class="row" id="refPick"><button type="button" id="pickRef">파일 선택</button></div>
       <div class="loaded hidden" id="refLoaded">
         <span class="tick">✓</span>
@@ -322,7 +324,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
   <div class="fcols">
     <div>
       <b>엑셀 취합기</b>
-      <span>v3.0 · 2026-10-07</span>
+      <span>v3.1 · 2026-10-07</span>
     </div>
     <div>
       <b>어떻게 모으나요</b>
@@ -2579,6 +2581,9 @@ if (typeof module !== 'undefined') module.exports = STYLED;
   $('pickFolder').onclick = function () { $('folderInput').click(); };
   $('clearFiles').onclick = clearFiles;
   $('pickRef').onclick = function () { $('refInput').click(); };
+  wireDrop($('refBox'), function (fl) { setRef(fl[0]); }, function () { $('refInput').click(); });
+  // 넣는 칸 밖에 파일을 떨어뜨려도 브라우저가 그 파일을 열어 작업 화면이 사라지지 않게
+  ['dragover', 'drop'].forEach(function (t) { window.addEventListener(t, function (e) { e.preventDefault(); }); });
   $('clearRef').onclick = clearRef;
   $('refInput').onchange = function () { setRef(this.files[0]); this.value = ''; };
   $('tplInput').onchange = function () { setTpl(this.files[0]); this.value = ''; };
