@@ -201,7 +201,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
 <div class="bar"><div class="bar-in">
   <div class="brand">
     <h1>엑셀 취합기</h1>
-    <span class="ver">v2.7</span>
+    <span class="ver">v2.8</span>
     <span class="dept">학교에서 받은 같은 양식의 엑셀 파일을 하나로 모읍니다</span>
   </div>
   <div class="offline">
@@ -308,7 +308,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
   <div class="fcols">
     <div>
       <b>엑셀 취합기</b>
-      <span>v2.7 · 2026-10-07</span>
+      <span>v2.8 · 2026-10-07</span>
     </div>
     <div>
       <b>어떻게 모으나요</b>
@@ -950,50 +950,86 @@ var ENGINE = (function () {
     list.forEach(function (n) { nameKeys(n).forEach(function (k) { if (k.length > bestLen && f.indexOf(k) >= 0) { best = n; bestLen = k.length; } }); });
     return best;
   }
-  function checkRoster(cfg, results, tplWs) {
-    var sc = (cfg.schoolCols || [])[0], owners = {};
-    if (sc != null) {                        // 파일 이름의 학교와 모인 줄의 학교 대조
-      var list = [], tb = bounds(tplWs);
-      for (var r = cfg.ds; r <= tb.r; r++) { var v = disp(get(tplWs, r, sc)); if (v && list.indexOf(v) < 0) list.push(v); }
-      var got = {}, named = 0;
-      results.forEach(function (res) {
-        var fs = schoolInName(res.file, list);
-        if (!fs) return;
-        named++; got[baseSchool(fs)] = true;
-        if (!res.fileSchool) res.fileSchool = fs;
-        var odd = [];
-        (res.rows[cfg.name] || []).forEach(function (row) {
-          var n = row[sc] ? disp(row[sc]) : '';
-          if (n) got[baseSchool(n)] = true;
-          if (n && baseSchool(n) !== baseSchool(fs)) odd.push([String(row.srcRow + 1), n]);
-        });
-        if (odd.length) res.issues.push({ t: '파일 이름과 다른 학교 줄', a: '"' + cfg.name + '" 시트. 파일 이름은 「' + fs + '」인데 다른 학교 줄에 적은 내용이 있습니다. 파일을 잘못 냈거나 다른 학교 줄에 적었는지 확인하세요.', table: { head: ['행', '줄의 학교명'], body: odd.slice(0, 8) } });
-      });
-      // 파일 이름 대부분에 학교명이 있을 때만: 목록에 있는데 파일도 줄도 없는 학교
-      if (results.length >= 2 && named * 2 >= results.length) {
-        cfg.missing = list.filter(function (n) { return !got[baseSchool(n)]; });
-      }
-    }
+  function checkRoster(cfg, results, tplWs, roster) {
+    var sc = (cfg.schoolCols || [])[0], list = [], tb = bounds(tplWs);
+    var nameOf = function (row) { return sc != null && row[sc] ? disp(row[sc]) : ''; };
+    if (sc != null) for (var r = cfg.ds; r <= tb.r; r++) { var v = disp(get(tplWs, r, sc)); if (v && list.indexOf(v) < 0) list.push(v); }
+    var named = [];
+
+    // 1) 파일 이름의 학교, 여러 학교를 모은 파일인지
+    //    모인 줄의 학교가 3곳 이상이거나, 파일 이름에 학교명이 없고 2곳 이상이면 여러 학교를 모은 파일로 봄
     results.forEach(function (res, i) {
-      var rows = res.rows[cfg.name] || [];
-      rows.forEach(function (row) { if (row.tplRow != null) (owners[row.tplRow] = owners[row.tplRow] || []).push(i); });
-      if (sc == null || rows.length < 2) return;
-      var names = rows.map(function (row) { return row[sc] ? disp(row[sc]) : ''; });
-      var main = mode(names.filter(Boolean).map(baseSchool));
+      var fs = sc != null ? schoolInName(res.file, list) : null;
+      named[i] = fs;
+      if (fs && !res.fileSchool) res.fileSchool = fs;
+      var bases = [];
+      (res.rows[cfg.name] || []).forEach(function (row) { var n = nameOf(row); if (n && bases.indexOf(baseSchool(n)) < 0) bases.push(baseSchool(n)); });
+      if (bases.length >= 3 || (bases.length >= 2 && !fs)) res.multi = Math.max(res.multi || 0, bases.length);
+    });
+
+    // 2) 한 학교 파일인데 다른 학교 줄에 적었는지 (여러 학교를 모은 파일은 빼고, 겹친 줄을 정리하기 전에)
+    var got = {};
+    results.forEach(function (res, i) {
+      var rows = res.rows[cfg.name] || [], fs = named[i];
+      if (fs) got[baseSchool(fs)] = true;
+      rows.forEach(function (row) { var n = nameOf(row); if (n) got[baseSchool(n)] = true; });
+      if (sc == null || res.multi) return;
+      var main = fs ? baseSchool(fs) : mode(rows.map(nameOf).filter(Boolean).map(baseSchool));
       var odd = [];
-      rows.forEach(function (row, k) { if (names[k] && baseSchool(names[k]) !== main) odd.push([String(row.srcRow + 1), names[k]]); });
-      if (odd.length) res.issues.push({ t: '다른 학교 줄에도 적음', a: '"' + cfg.name + '" 시트. 이 파일에서 모인 줄 가운데 학교명이 다른 줄이 있습니다. 실수로 다른 학교 줄에 적었는지 확인하세요.', table: { head: ['행', '학교명'], body: odd.slice(0, 8) } });
+      rows.forEach(function (row) { var n = nameOf(row); if (n && baseSchool(n) !== main) odd.push([String(row.srcRow + 1), n]); });
+      if (!odd.length) return;
+      if (fs) res.issues.push({ t: '파일 이름과 다른 학교 줄', a: '"' + cfg.name + '" 시트. 파일 이름은 「' + fs + '」인데 다른 학교 줄에 적은 내용이 있습니다. 파일을 잘못 냈거나 다른 학교 줄에 적었는지 확인하세요.', table: { head: ['행', '줄의 학교명'], body: odd.slice(0, 8) } });
+      else res.issues.push({ t: '다른 학교 줄에도 적음', a: '"' + cfg.name + '" 시트. 이 파일에서 모인 줄 가운데 학교명이 다른 줄이 있습니다. 실수로 다른 학교 줄에 적었는지 확인하세요.', table: { head: ['행', '학교명'], body: odd.slice(0, 8) } });
     });
-    var clash = {};
+
+    // 3) 양식의 같은 줄을 여러 파일이 고쳤을 때: 답 칸 내용이 똑같으면 한 줄만 남김 (학교가 직접 낸 파일 쪽을 남김)
+    var owners = {}, answerCols = [];
+    for (var c = 0; c <= cfg.lastCol; c++) if (roster.cols.indexOf(c) < 0) answerCols.push(c);
+    var answerSig = function (row) { return answerCols.map(function (c) { return row[c] ? norm(disp(row[c])) : ''; }).join('\u0001'); };
+    results.forEach(function (res, i) {
+      (res.rows[cfg.name] || []).forEach(function (row) { if (row.tplRow != null) (owners[row.tplRow] = owners[row.tplRow] || []).push({ i: i, row: row }); });
+    });
+    var drop = [], dropped = 0, clash = {};
     Object.keys(owners).forEach(function (t) {
-      var u = owners[t].filter(function (v, k, a) { return a.indexOf(v) === k; });
-      if (u.length < 2) return;
-      u.forEach(function (i) { (clash[i] = clash[i] || []).push([String(+t + 1), u.filter(function (j) { return j !== i; }).map(function (j) { return results[j].file; }).join(', ')]); });
+      var list2 = owners[t];
+      if (list2.length < 2) return;
+      var bySig = {};
+      list2.forEach(function (e) { (bySig[answerSig(e.row)] = bySig[answerSig(e.row)] || []).push(e); });
+      var left = [];
+      Object.keys(bySig).forEach(function (k) {
+        // 남길 줄: 파일 이름의 학교와 줄의 학교가 같은 파일 → 한 학교 파일 → 여러 학교를 모은 파일
+        var rank = function (e) {
+          var own = named[e.i] && baseSchool(named[e.i]) === baseSchool(nameOf(e.row));
+          return (results[e.i].multi ? 2 : 0) + (own ? 0 : 1);
+        };
+        var g = bySig[k].slice().sort(function (x, y) { return rank(x) - rank(y) || x.i - y.i; });
+        left.push(g[0]);
+        g.slice(1).forEach(function (e) {
+          drop.push(e.row); dropped++;
+          results[e.i].infos.push(cfg.name + ' ' + (+t + 1) + '행: 「' + results[g[0].i].file + '」와 내용이 같아 한 줄만 남김');
+        });
+      });
+      var files = left.map(function (e) { return e.i; }).filter(function (v, k, a) { return a.indexOf(v) === k; });
+      if (files.length < 2) return;
+      files.forEach(function (i) { (clash[i] = clash[i] || []).push([String(+t + 1), files.filter(function (j) { return j !== i; }).map(function (j) { return results[j].file; }).join(', ')]); });
     });
+    if (drop.length) results.forEach(function (res) {
+      if (!res.rows[cfg.name]) return;
+      res.rows[cfg.name] = res.rows[cfg.name].filter(function (row) { return drop.indexOf(row) < 0; });
+      res.counts[cfg.name] = res.rows[cfg.name].length;
+    });
+    cfg.dupDropped = dropped;
     Object.keys(clash).forEach(function (i) {
-      results[i].issues.push({ t: '다른 파일과 같은 줄을 고침', a: '"' + cfg.name + '" 시트. 양식의 같은 줄을 두 파일 이상이 고쳤습니다. 결과에 두 줄 모두 들어 있으니 어느 쪽이 맞는지 확인하세요.', table: { head: ['양식의 행', '같이 고친 파일'], body: clash[i].slice(0, 8) } });
+      results[i].issues.push({ t: '다른 파일과 같은 줄을 고침', a: '"' + cfg.name + '" 시트. 양식의 같은 줄을 두 파일 이상이 서로 다르게 적었습니다. 결과에 두 줄 모두 들어 있으니 어느 쪽이 맞는지 확인하세요.', table: { head: ['양식의 행', '다르게 적은 파일'], body: clash[i].slice(0, 8) } });
     });
+
+    // 4) 파일 이름 대부분에 학교명이 있을 때만: 목록에 있는데 파일도 줄도 없는 학교
+    var namedCount = named.filter(Boolean).length;
+    if (sc != null && results.length >= 2 && namedCount * 2 >= results.filter(function (r) { return !r.multi; }).length) {
+      cfg.missing = list.filter(function (n) { return !got[baseSchool(n)]; });
+    }
   }
+
 
   function merge(cfgs, tplWb, files, opts) {
     opts = opts || {};
@@ -1169,7 +1205,8 @@ var ENGINE = (function () {
         if (flags.length) res.issues.push({ t: '서식 검증결과 재검토', a: '"' + cfg.name + '" 시트. 기준 초과나 금액 불일치일 수 있습니다.', table: cellSample(ws, flags) });
       });
 
-      if (roster) checkRoster(cfg, results, tplWs);
+      cfg.dupDropped = 0;
+      if (roster) checkRoster(cfg, results, tplWs, roster);
 
       var ns = results.map(function (r) { return r.counts[cfg.name] || 0; }).filter(function (n) { return n > 0; });
       cfg.filled = ns.length;
@@ -1178,6 +1215,10 @@ var ENGINE = (function () {
     });
 
     results.forEach(function (r) {
+      if (r.multi) {
+        r.school = '여러 학교 (' + r.multi + '곳)';
+        r.infos.push('여러 학교를 모은 파일');
+      }
       if (!r.school && r.nameHint) r.school = r.nameHint;
       if (!r.school && r.fileSchool) r.school = r.fileSchool;
       if (r.school) r.schoolFound = true;
@@ -1185,7 +1226,7 @@ var ENGINE = (function () {
     });
 
     var seenS = {};
-    results.forEach(function (r) { if (r.schoolFound) (seenS[norm(r.school)] = seenS[norm(r.school)] || []).push(r); });
+    results.forEach(function (r) { if (r.schoolFound && !r.multi) (seenS[norm(r.school)] = seenS[norm(r.school)] || []).push(r); });
     Object.keys(seenS).forEach(function (k) {
       if (seenS[k].length > 1) seenS[k].forEach(function (r) {
         r.issues.push({ t: '같은 학교 파일 ' + seenS[k].length + '개', a: '최신 파일만 남기고 나머지는 목록에서 빼세요.', table: { head: ['제출파일'], body: seenS[k].map(function (x) { return [x.file]; }) } });
@@ -1199,6 +1240,7 @@ var ENGINE = (function () {
     results.forEach(function (r) { Object.keys(r.excluded).forEach(function (k) { excludedCount += r.excluded[k].filter(function (e) { return !e.forced; }).length; }); });
     return {
       sheets: cfgs.filter(function (c) { return c.include; }), results: results,
+      dupDropped: cfgs.reduce(function (a, c) { return a + (c.include && c.dupDropped || 0); }, 0),
       missing: cfgs.reduce(function (a, c) { (c.include && c.missing || []).forEach(function (n) { if (a.indexOf(n) < 0) a.push(n); }); return a; }, []),
       issueCount: results.reduce(function (s, r) { return s + r.issues.length; }, 0),
       issueFiles: results.filter(function (r) { return r.issues.length; }).length,
@@ -2257,6 +2299,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
     $('runMsg').innerHTML = '<b>' + s.results.length + '개 파일</b>에서 <b>' + total + '줄</b>을 모았습니다.' +
       (zeroFiles ? ' 모인 줄이 없는 파일이 ' + zeroFiles + '개 있습니다(학교별 현황에서 빨간 0).' : '') +
       (failed.length ? ' 열지 못한 파일 ' + failed.length + '개.' : '') +
+      (s.dupDropped ? ' 여러 파일에 똑같이 들어 있던 줄 ' + s.dupDropped + '개는 한 줄만 남겼습니다.' : '') +
       (s.missing.length ? ' 양식 목록에 있는데 파일이 오지 않은 학교가 <b>' + s.missing.length + '곳</b> 있습니다(학교별 현황 맨 아래).' : '');
     $('ledger').innerHTML =
       '<div><b>' + s.results.length + '</b><span>받은 파일</span></div>' +
