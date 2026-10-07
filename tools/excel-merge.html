@@ -201,7 +201,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
 <div class="bar"><div class="bar-in">
   <div class="brand">
     <h1>엑셀 취합기</h1>
-    <span class="ver">v2.5</span>
+    <span class="ver">v2.6</span>
     <span class="dept">학교에서 받은 같은 양식의 엑셀 파일을 하나로 모읍니다</span>
   </div>
   <div class="offline">
@@ -308,7 +308,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
   <div class="fcols">
     <div>
       <b>엑셀 취합기</b>
-      <span>v2.5 · 2026-10-07</span>
+      <span>v2.6 · 2026-10-07</span>
     </div>
     <div>
       <b>어떻게 모으나요</b>
@@ -518,12 +518,14 @@ var ENGINE = (function () {
   //  - 양식과 같은 이름으로 보낸 학교가 있으면 그 묶음이 양식 시트 자리에 들어가고, 없으면 가장 많이 쓴 이름이 그 자리에 들어감
   //  - 엑셀에 쓸 수 없는 이름이거나 다른 시트 이름과 겹치면 첫 묶음에 합침
   var BAD_SHEET = /[\[\]:*?\/\\]/;
+  // 학교가 시트 이름을 자기 학교명으로 바꿔 보낸 것 (서울대영초등학교, 대영초, 탑동유치원 …)
+  function schoolLike(n) { return /(학교|유치원|초|중|고|병설유)$/.test(norm(n)); }
   function nameFromSchools(cfg, tplWb, files, results, usedOut) {
     var order = [], cnt = {};
     files.forEach(function (f, i) {
       var fb = findSheetBy(f.wb, cfg.name, cfg.vidx, headOf(cfg));
       // 이름이 전혀 달라 내용·순서로 찾은 시트(예: 시트 이름을 학교명으로 바꿈)는 양식 시트와 한 묶음
-      var m = !fb ? null : (fb.by === 'name' ? fb.name : cfg.name);
+      var m = !fb ? null : (fb.by === 'name' && !schoolLike(fb.name) ? fb.name : cfg.name);
       results[i].sheetOf = results[i].sheetOf || {};
       results[i].sheetOf[cfg.name] = m;
       if (!m) return;
@@ -535,15 +537,17 @@ var ENGINE = (function () {
     var others = (tplWb ? tplWb.SheetNames : []).filter(function (n) { return n !== cfg.name; }).map(function (n) { return n.toLowerCase(); });
     var ok = function (m) { return m === cfg.name || (m.length <= 31 && !BAD_SHEET.test(m) && others.indexOf(m.toLowerCase()) < 0 && !usedOut[m.toLowerCase()]); };
     if (!ok(first)) first = cfg.name;
-    var groups = [{ name: first, members: [first], count: cnt[first] || 0 }];
-    usedOut[first.toLowerCase()] = true;
+    // 기준 시트 이름부터 학교명이면(모든 학교가 시트 이름을 바꿈) 결과 시트 이름은 「취합」
+    var outFirst = schoolLike(first) && others.indexOf('취합') < 0 ? '취합' : first;
+    var groups = [{ name: outFirst, members: [first], count: cnt[first] || 0 }];
+    usedOut[outFirst.toLowerCase()] = true;
     order.forEach(function (m) {
       if (m === first) return;
       if (ok(m)) { groups.push({ name: m, members: [m], count: cnt[m] }); usedOut[m.toLowerCase()] = true; }
       else { groups[0].members.push(m); groups[0].count += cnt[m]; }
     });
     cfg.groups = groups;
-    cfg.outName = first;
+    cfg.outName = outFirst;
   }
   function inGroup(res, cfg, g) {
     if (!cfg.groups || cfg.groups.length < 2) return true;
@@ -1478,7 +1482,7 @@ var ENGINE = (function () {
     files.forEach(function (f, i) {
       // .xlsx 우선 → 다른 파일들과 시트 이름이 같은 파일 (시트 이름을 바꿔 보낸 파일은 피함) → 칸이 많이 채워진 파일
       var n = /\.(xlsx|xlsm)$/i.test(f.name || '') ? 1e12 : 0;
-      visibleNames(f.wb).forEach(function (s) { n += used[s] * 1e6 + Object.keys(f.wb.Sheets[s] || {}).length; });
+      visibleNames(f.wb).forEach(function (s) { n += (schoolLike(s) ? 0 : 1e9) + used[s] * 1e6 + Object.keys(f.wb.Sheets[s] || {}).length; });
       if (n > bestN) { bestN = n; best = i; }
     });
     return best;
