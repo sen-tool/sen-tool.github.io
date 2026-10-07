@@ -59,6 +59,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,.zone:focus-visibl
 .chip{font-size:12.5px;padding:2px 10px;border-radius:99px;background:#f3f2ee;border:1px solid var(--rule);white-space:nowrap}
 .chip.ok{background:var(--ok-bg);border-color:#BEE0CC;color:var(--ok)}
 .chip.warn{background:var(--warn-bg);border-color:#EBCE92;color:var(--warn)}
+.refbox{margin-top:14px;padding:12px 14px;border:1px solid var(--rule);border-radius:var(--r);background:#fbfaf7;font-size:13.5px;display:flex;flex-direction:column;gap:6px}
+.refbox .sub{color:var(--sub);font-size:12.5px}
+.refbox .loaded{padding:8px 12px}
 .status{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin:0 0 12px;color:var(--sub);font-size:13.5px}
 .hidden{display:none !important}
 
@@ -201,7 +204,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
 <div class="bar"><div class="bar-in">
   <div class="brand">
     <h1>엑셀 취합기</h1>
-    <span class="ver">v2.9</span>
+    <span class="ver">v3.0</span>
     <span class="dept">학교에서 받은 같은 양식의 엑셀 파일을 하나로 모읍니다</span>
   </div>
   <div class="offline">
@@ -242,6 +245,16 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
       </div>
     </div>
     <div class="tray" id="tray"></div>
+    <div class="refbox" id="refBox">
+      <div><b>이미 취합해 둔 파일</b> <span class="sub">(선택)</span></div>
+      <div class="sub">넣으면 그 파일의 줄은 그대로 두고, 학교 파일에서 <b>거기 없는 줄만</b> 더합니다.</div>
+      <div class="row" id="refPick"><button type="button" id="pickRef">파일 선택</button></div>
+      <div class="loaded hidden" id="refLoaded">
+        <span class="tick">✓</span>
+        <span class="nm" id="refName"></span>
+        <button type="button" class="plain" id="clearRef">빼기</button>
+      </div>
+    </div>
   </section>
 </div>
 
@@ -277,7 +290,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
     <div class="box">
       <small>넣는 것</small>
       <b>학교에서 받은 엑셀 여러 개 (+ 빈 양식)</b>
-      <ul><li>같은 양식으로 받은 파일</li><li>폴더째 넣어도 됩니다</li><li>빈 양식이 없으면 받은 파일끼리 견줘 양식을 만듭니다</li></ul>
+      <ul><li>같은 양식으로 받은 파일</li><li>폴더째 넣어도 됩니다</li><li>빈 양식이 없으면 받은 파일끼리 견줘 양식을 만듭니다</li><li>이미 취합해 둔 파일을 넣으면 거기 없는 줄만 더합니다</li></ul>
     </div>
     <div class="arrow">→</div>
     <div class="box out">
@@ -302,13 +315,14 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
 
 <input type="file" id="tplInput" accept=".xlsx,.xls,.xlsm" class="hidden">
 <input type="file" id="fileInput" multiple accept=".xlsx,.xls,.xlsm" class="hidden">
+<input type="file" id="refInput" accept=".xlsx,.xls,.xlsm" class="hidden">
 <input type="file" id="folderInput" webkitdirectory multiple class="hidden">
 
 <footer>
   <div class="fcols">
     <div>
       <b>엑셀 취합기</b>
-      <span>v2.9 · 2026-10-07</span>
+      <span>v3.0 · 2026-10-07</span>
     </div>
     <div>
       <b>어떻게 모으나요</b>
@@ -950,6 +964,32 @@ var ENGINE = (function () {
     list.forEach(function (n) { nameKeys(n).forEach(function (k) { if (k.length > bestLen && f.indexOf(k) >= 0) { best = n; bestLen = k.length; } }); });
     return best;
   }
+  /* 목록형이 아닌 양식 + 이미 취합한 파일: 그 파일에 이미 있는 학교(학교명 칸이 없으면 똑같은 줄)는 넣지 않음 */
+  function skipKnown(cfg, results, force) {
+    var ri = -1;
+    results.forEach(function (r, i) { if (r.ref) ri = i; });
+    if (ri < 0) return;
+    var sc = (cfg.schoolCols || [])[0], have = {};
+    var keyOf = function (row) {
+      if (sc != null) return row[sc] ? baseSchool(disp(row[sc])) : '';
+      return row.map(function (x) { return x && !x.f ? norm(disp(x)) : ''; }).join('\u0001');
+    };
+    (results[ri].rows[cfg.name] || []).forEach(function (row) { var k = keyOf(row); if (k) have[k] = true; });
+    results.forEach(function (res, i) {
+      if (i === ri || !res.rows[cfg.name]) return;
+      var keep = [];
+      res.rows[cfg.name].forEach(function (row) {
+        var key = res.file + '|' + cfg.name + '|' + row.srcRow, k = keyOf(row);
+        if (k && have[k] && !force[key]) {
+          res.inRef = (res.inRef || 0) + 1;
+          res.excluded[cfg.name].push({ r: row.srcRow, why: sc != null ? '이미 취합한 파일에 있는 학교' : '이미 취합한 파일에 똑같은 줄이 있음', cells: row.slice(0, 10).map(function (x) { return x ? disp(x).slice(0, 16) : ''; }), key: key });
+        } else keep.push(row);
+      });
+      res.rows[cfg.name] = keep;
+      res.counts[cfg.name] = keep.length;
+    });
+  }
+
   function checkRoster(cfg, results, tplWs, roster) {
     var sc = (cfg.schoolCols || [])[0], list = [], tb = bounds(tplWs);
     var nameOf = function (row) { return sc != null && row[sc] ? disp(row[sc]) : ''; };
@@ -973,7 +1013,7 @@ var ENGINE = (function () {
       var rows = res.rows[cfg.name] || [], fs = named[i];
       if (fs) got[baseSchool(fs)] = true;
       rows.forEach(function (row) { var n = nameOf(row); if (n) got[baseSchool(n)] = true; });
-      if (sc == null || res.multi) return;
+      if (sc == null || res.multi || res.ref) return;
       var main = fs ? baseSchool(fs) : mode(rows.map(nameOf).filter(Boolean).map(baseSchool));
       var odd = [];
       rows.forEach(function (row) { var n = nameOf(row); if (n && baseSchool(n) !== main) odd.push([String(row.srcRow + 1), n]); });
@@ -989,7 +1029,7 @@ var ENGINE = (function () {
     results.forEach(function (res, i) {
       (res.rows[cfg.name] || []).forEach(function (row) { if (row.tplRow != null) (owners[row.tplRow] = owners[row.tplRow] || []).push({ i: i, row: row }); });
     });
-    var drop = [], dropped = 0, clash = {}, choices = {};
+    var drop = [], dropped = 0, refDup = 0, clash = {}, choices = {}, refDiff = {};
     var colLabel = function (c) {               // 칸 이름: 양식 제목 줄에서 가장 아래 글자
       for (var r = cfg.he; r >= cfg.hs; r--) { var v = disp(get(tplWs, r, c)); if (v) return v.split(/\r?\n/)[0].slice(0, 20); }
       return colName(c) + '열';
@@ -1004,17 +1044,19 @@ var ENGINE = (function () {
         // 남길 줄: 파일 이름의 학교와 줄의 학교가 같은 파일 → 한 학교 파일 → 여러 학교를 모은 파일
         var rank = function (e) {
           var own = named[e.i] && baseSchool(named[e.i]) === baseSchool(nameOf(e.row));
-          return (results[e.i].multi ? 2 : 0) + (own ? 0 : 1);
+          return (results[e.i].ref ? -10 : 0) + (results[e.i].multi ? 2 : 0) + (own ? 0 : 1);
         };
         var g = bySig[k].slice().sort(function (x, y) { return rank(x) - rank(y) || x.i - y.i; });
         left.push(g[0]);
         g.slice(1).forEach(function (e) {
-          drop.push(e.row); dropped++;
+          drop.push(e.row);
+          if (results[g[0].i].ref) { refDup++; results[e.i].inRef = (results[e.i].inRef || 0) + 1; } else dropped++;
           results[e.i].infos.push(cfg.name + ' ' + (+t + 1) + '행: 「' + results[g[0].i].file + '」와 내용이 같아 한 줄만 남김');
         });
       });
       var files = left.map(function (e) { return e.i; }).filter(function (v, k, a) { return a.indexOf(v) === k; });
       if (files.length < 2) return;
+      var refE = left.filter(function (e) { return results[e.i].ref; })[0];
       // 무엇이 다른지: 파일마다 다르게 적은 칸만 나란히 보여 주고, 어느 파일 것을 쓸지 고르게 함
       var cols = answerCols.filter(function (c) {
         var vs = left.map(function (e) { return e.row[c] ? norm(disp(e.row[c])) : ''; });
@@ -1022,6 +1064,16 @@ var ENGINE = (function () {
       });
       var group = { row: String(+t + 1), school: nameOf(left[0].row), head: cols.map(colLabel),
         options: left.map(function (e) { return { file: results[e.i].file, key: results[e.i].file + '|' + cfg.name + '|' + e.row.srcRow, vals: cols.map(function (c) { return e.row[c] ? disp(e.row[c]) : ''; }) }; }) };
+      if (refE) {                                // 이미 취합한 파일에 있는 줄: 그 값을 그대로 두고 학교 파일 줄은 뺌 (골라서 바꿀 수 있음)
+        group.ref = true;
+        left.forEach(function (e) {
+          if (e === refE) return;
+          drop.push(e.row);
+          results[e.i].inRef = (results[e.i].inRef || 0) + 1;
+          (refDiff[e.i] = refDiff[e.i] || []).push(group);
+        });
+        return;
+      }
       files.forEach(function (i) {
         (clash[i] = clash[i] || []).push([group.row, group.school, files.filter(function (j) { return j !== i; }).map(function (j) { return results[j].file; }).join(', ')]);
         (choices[i] = choices[i] || []).push(group);
@@ -1033,6 +1085,10 @@ var ENGINE = (function () {
       res.counts[cfg.name] = res.rows[cfg.name].length;
     });
     cfg.dupDropped = dropped;
+    cfg.refDup = refDup;
+    Object.keys(refDiff).forEach(function (i) {
+      results[i].issues.push({ t: '이미 취합한 파일과 다르게 적음', a: '"' + cfg.name + '" 시트. 이미 취합한 파일에 있는 줄이라 그 값을 그대로 두고 이 파일 줄은 넣지 않았습니다. 이 파일 값이 맞으면 「해당 내용 보기」에서 「이 파일 것 쓰기」를 누르세요.', table: { head: ['양식의 행', '학교'], body: refDiff[i].map(function (g) { return [g.row, g.school]; }).slice(0, 8) }, choose: refDiff[i] });
+    });
     Object.keys(clash).forEach(function (i) {
       results[i].issues.push({ t: '다른 파일과 같은 줄을 고침', a: '"' + cfg.name + '" 시트. 양식의 같은 줄을 두 파일 이상이 서로 다르게 적어 결과에 두 줄 모두 들어 있습니다. 「해당 내용 보기」에서 다른 칸을 비교하고 맞는 파일의 「이 파일 것 쓰기」를 누르세요.', table: { head: ['양식의 행', '학교', '다르게 적은 파일'], body: clash[i].slice(0, 8) }, choose: choices[i] });
     });
@@ -1049,7 +1105,7 @@ var ENGINE = (function () {
     opts = opts || {};
     var force = opts.force || {}, drop = opts.drop || {};   // drop: 같은 줄을 다른 파일 것으로 골라 뺀 줄
     var results = files.map(function (f) {
-      return { file: f.name, school: '', issues: [], infos: [], rows: {}, counts: {}, offsets: {}, excluded: {}, status: '정상' };
+      return { file: f.name, ref: !!f.ref, school: '', issues: [], infos: [], rows: {}, counts: {}, offsets: {}, excluded: {}, status: '정상' };
     });
 
     var usedOut = {};
@@ -1167,6 +1223,11 @@ var ENGINE = (function () {
         });
 
         var kept = [], errs = [], flags = [];
+        // 이미 취합한 파일이 이 도구로 저장한 결과면 오른쪽 「제출파일」 칸의 원래 파일 이름을 살림
+        var refFileCol = -1;
+        if (res.ref) for (var fc2 = cfg.lastCol + 1; fc2 <= cfg.lastCol + 3; fc2++) {
+          for (var hr2 = cfg.hs + p.loc.off; hr2 <= cfg.he + p.loc.off; hr2++) if (norm(disp(get(ws, hr2, fc2))) === '제출파일') refFileCol = fc2;
+        }
         p.rows.forEach(function (x) {
           if (x.inc && x.forced) {                 // 직접 되살린 줄도 목록에 남겨 다시 뺄 수 있게
             var fc = x.typed.slice(0, 10).map(function (q) { return disp(get(ws, x.r, q[0])).slice(0, 16); });
@@ -1185,6 +1246,7 @@ var ENGINE = (function () {
           row.srcRow = x.r;
           row.tplRow = x.t <= bounds(tplWs).r ? x.t : null;   // 양식의 몇 번째 줄을 고친 것인지 (학교가 추가한 줄은 없음)
           row.note = x.forced ? '직접 포함' : '';
+          if (refFileCol >= 0) row.fileLabel = disp(get(ws, x.r, refFileCol));
           for (var c3 = 0; c3 <= cfg.lastCol; c3++) {
             var cell = get(ws, x.r, c3);
             row.push(cell ? { t: cell.t, v: cell.v, w: cell.w, f: cell.f } : null);
@@ -1222,8 +1284,9 @@ var ENGINE = (function () {
         if (flags.length) res.issues.push({ t: '서식 검증결과 재검토', a: '"' + cfg.name + '" 시트. 기준 초과나 금액 불일치일 수 있습니다.', table: cellSample(ws, flags) });
       });
 
-      cfg.dupDropped = 0;
+      cfg.dupDropped = 0; cfg.refDup = 0;
       if (roster) checkRoster(cfg, results, tplWs, roster);
+      else skipKnown(cfg, results, force);
 
       var ns = results.map(function (r) { return r.counts[cfg.name] || 0; }).filter(function (n) { return n > 0; });
       cfg.filled = ns.length;
@@ -1232,7 +1295,9 @@ var ENGINE = (function () {
     });
 
     results.forEach(function (r) {
-      if (r.multi) {
+      if (r.ref) {
+        r.school = '이미 취합한 파일' + (r.multi ? ' (' + r.multi + '곳)' : '');
+      } else if (r.multi) {
         r.school = '여러 학교 (' + r.multi + '곳)';
         r.infos.push('여러 학교를 모은 파일');
       }
@@ -1243,7 +1308,7 @@ var ENGINE = (function () {
     });
 
     var seenS = {};
-    results.forEach(function (r) { if (r.schoolFound && !r.multi) (seenS[norm(r.school)] = seenS[norm(r.school)] || []).push(r); });
+    results.forEach(function (r) { if (r.schoolFound && !r.multi && !r.ref) (seenS[norm(r.school)] = seenS[norm(r.school)] || []).push(r); });
     Object.keys(seenS).forEach(function (k) {
       if (seenS[k].length > 1) seenS[k].forEach(function (r) {
         r.issues.push({ t: '같은 학교 파일 ' + seenS[k].length + '개', a: '최신 파일만 남기고 나머지는 목록에서 빼세요.', table: { head: ['제출파일'], body: seenS[k].map(function (x) { return [x.file]; }) } });
@@ -1251,13 +1316,15 @@ var ENGINE = (function () {
     });
 
     results.forEach(function (r) { r.status = r.issues.length ? '확인필요' : '정상'; });
-    results.sort(function (a, b) { return a.school.localeCompare(b.school, 'ko') || a.file.localeCompare(b.file, 'ko'); });
+    results.sort(function (a, b) { return (b.ref ? 1 : 0) - (a.ref ? 1 : 0) || a.school.localeCompare(b.school, 'ko') || a.file.localeCompare(b.file, 'ko'); });
 
     var excludedCount = 0;
     results.forEach(function (r) { Object.keys(r.excluded).forEach(function (k) { excludedCount += r.excluded[k].filter(function (e) { return !e.forced; }).length; }); });
     return {
       sheets: cfgs.filter(function (c) { return c.include; }), results: results,
       dupDropped: cfgs.reduce(function (a, c) { return a + (c.include && c.dupDropped || 0); }, 0),
+      refDup: cfgs.reduce(function (a, c) { return a + (c.include && c.refDup || 0); }, 0),
+      hasRef: files.some(function (f) { return f.ref; }),
       missing: cfgs.reduce(function (a, c) { (c.include && c.missing || []).forEach(function (n) { if (a.indexOf(n) < 0) a.push(n); }); return a; }, []),
       issueCount: results.reduce(function (s, r) { return s + r.issues.length; }, 0),
       issueFiles: results.filter(function (r) { return r.issues.length; }).length,
@@ -1460,7 +1527,7 @@ var ENGINE = (function () {
             } else o = outCell(x);
             if (o) ws[A(out, c)] = o;
           });
-          ws[A(out, fileCol)] = { t: 's', v: res.file };
+          ws[A(out, fileCol)] = { t: 's', v: row.fileLabel || res.file };
           out++;
         });
       });
@@ -1507,7 +1574,7 @@ var ENGINE = (function () {
       (res.rows[cfg.name] || []).forEach(function (row) {
         total++;
         if (body.length >= maxRows) return;
-        body.push({ file: res.file, school: res.school, note: row.note || '', cells: row.map(function (x) { return disp(x); }), fx: row.map(function (x) { return !!(x && x.f); }) });
+        body.push({ file: row.fileLabel || res.file, school: res.school, note: row.note || '', cells: row.map(function (x) { return disp(x); }), fx: row.map(function (x) { return !!(x && x.f); }) });
       });
     });
     return { head: head, body: body, total: total, lastCol: cfg.lastCol, startRow: cfg.he + 2 };
@@ -1546,7 +1613,7 @@ var ENGINE = (function () {
     files.forEach(function (f) { visibleNames(f.wb).forEach(function (s) { used[s] = (used[s] || 0) + 1; }); });
     files.forEach(function (f, i) {
       // .xlsx 우선 → 다른 파일들과 시트 이름이 같은 파일 (시트 이름을 바꿔 보낸 파일은 피함) → 칸이 많이 채워진 파일
-      var n = /\.(xlsx|xlsm)$/i.test(f.name || '') ? 1e12 : 0;
+      var n = (/\.(xlsx|xlsm)$/i.test(f.name || '') ? 1e12 : 0) - (f.ref ? 1e14 : 0);   // 이미 취합한 파일은 기준으로 고르지 않음
       visibleNames(f.wb).forEach(function (s) { n += (schoolLike(s) ? 0 : 1e9) + used[s] * 1e6 + Object.keys(f.wb.Sheets[s] || {}).length; });
       if (n > bestN) { bestN = n; best = i; }
     });
@@ -1692,7 +1759,7 @@ var STYLED = (function () {
         Object.keys(cols).map(Number).sort(function (a, b) { return a - b; }).forEach(function (ci) {
           if (ci > maxCol) return;
           var s = st.map[ci], ref = colName(ci) + rowNo;
-          var v = ci === fileCol ? block.file : (ci === noteCol ? (row.note || '') : (ci <= cfg.lastCol ? row[ci] : null));
+          var v = ci === fileCol ? (row.fileLabel || block.file) : (ci === noteCol ? (row.note || '') : (ci <= cfg.lastCol ? row[ci] : null));
           var sa = (s != null && ci <= cfg.lastCol) ? ' s="' + s + '"' : '';
           if (v == null || v === '' || (typeof v === 'object' && v.v == null)) { cellXml += '<c r="' + ref + '"' + sa + '/>'; return; }
           if (ci === fileCol || ci === noteCol) { cellXml += '<c r="' + ref + '" t="inlineStr"><is><t xml:space="preserve">' + esc(v) + '</t></is></c>'; return; }
@@ -1940,6 +2007,8 @@ if (typeof module !== 'undefined') module.exports = STYLED;
   var tplFile = null, tplBuf = null, tplWb = null;
   var autoTpl = null;                    // 빈 양식 없이 받은 파일로 만든 양식일 때: 시트별로 비운 칸 주소
   var files = [], failed = [], seenKeys = {};
+  var refFile = null;                    // 이미 취합해 둔 파일: 그 줄은 그대로 두고 없는 줄만 더함
+  function allFiles() { return refFile ? [refFile].concat(files) : files; }
   var cfgs = [], store = {}, force = {}, drop = {};
   var summary = null, activeSheet = null, brush = 'head', curTab = 'preview', pvSheet = null;
   var reading = 0;
@@ -1985,7 +2054,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
       if (!tplWb) { $('tplName').textContent = f.name + ' — 열 수 없습니다. 암호나 파일 손상을 확인하세요.'; return; }
       autoTpl = null; showAutoNote();
       loadStore(); force = {}; drop = {};
-      cfgs = ENGINE.analyze(tplWb, files);
+      cfgs = ENGINE.analyze(tplWb, allFiles());
       $('tplName').innerHTML = esc(f.name) + '<br><span style="font-weight:400;font-size:12.5px;color:var(--sub)">시트 ' + cfgs.length + '개를 찾았습니다. <a href="#step3" class="seeRange">범위를 아래에 색으로 표시했습니다 ↓</a></span>';
       applyStore();
       var first = cfgs.filter(function (c) { return c.include; })[0] || cfgs[0];
@@ -2027,16 +2096,16 @@ if (typeof module !== 'undefined') module.exports = STYLED;
   /* 빈 양식을 넣지 않았으면 받은 파일끼리 견줘 양식을 만든다 */
   function useAuto() {
     if (tplFile) return;
-    if (!files.length) {
+    if (!allFiles().length) {
       tplBuf = tplWb = null; autoTpl = null; cfgs = []; summary = null; store = {};
       $('step3').classList.add('hidden'); $('step4').classList.add('hidden');
       showAutoNote();
       return;
     }
-    var t = ENGINE.autoTemplate(files);
+    var t = ENGINE.autoTemplate(allFiles());
     tplWb = t.wb; autoTpl = t.clear; tplBuf = t.base.buf;
     var prev = activeSheet;
-    cfgs = ENGINE.analyze(tplWb, files);
+    cfgs = ENGINE.analyze(tplWb, allFiles());
     applyStore();
     activeSheet = cfgOf(prev) ? prev : ((cfgs.filter(function (c) { return c.include; })[0] || cfgs[0] || {}).name || null);
     showAutoNote(t.base.name);
@@ -2057,6 +2126,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
     Array.prototype.forEach.call(list, function (f) {
       if (!isXl(f.name)) return;
       if (tplFile && f.name === tplFile.name && f.size === tplFile.size) return;
+      if (refFile && f.name === refFile.name && f.size === refFile.size) return;
       var k = f.name + '|' + f.size;
       if (seenKeys[k]) return;
       seenKeys[k] = true; todo.push(f);
@@ -2078,7 +2148,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
       reading -= todo.length;
       if (!tplFile) useAuto();
       if (tplWb) {
-        cfgs.forEach(function (c) { c.fileCount = files.filter(function (x) { return !!ENGINE.sheetOf(x.wb, c); }).length; });
+        cfgs.forEach(function (c) { c.fileCount = allFiles().filter(function (x) { return !!ENGINE.sheetOf(x.wb, c); }).length; });
         remerge();
       }
       refreshSteps();
@@ -2087,7 +2157,30 @@ if (typeof module !== 'undefined') module.exports = STYLED;
   }
   function clearFiles() {
     files = []; failed = []; seenKeys = {}; force = {}; drop = {}; summary = null;
-    $('step4').classList.add('hidden'); renderTray(); useAuto(); refreshSteps(); if (tplWb) renderSheets();
+    $('step4').classList.add('hidden'); renderTray(); useAuto(); refreshSteps(); if (tplWb) renderSheets(); if (refFile) remerge();
+  }
+
+  function setRef(f) {
+    if (!f || !isXl(f.name)) return;
+    readBuf(f).then(function (buf) {
+      var wb = buf ? parse(buf) : null;
+      if (!wb) { $('refName').textContent = f.name + ' — 열 수 없습니다.'; $('refLoaded').classList.remove('hidden'); return; }
+      // 학교 파일 목록에 같은 파일이 들어 있으면 거기서는 뺌
+      files = files.filter(function (x) { return x.name !== f.name; });
+      refFile = { name: f.name, size: f.size, wb: wb, buf: buf, ref: true };
+      $('refName').textContent = f.name;
+      $('refLoaded').classList.remove('hidden'); $('refPick').classList.add('hidden');
+      force = {}; drop = {};
+      if (!tplFile) useAuto();
+      remerge(); renderTray(); refreshSteps();
+      if (tplWb) scrollToCard('step4');
+    });
+  }
+  function clearRef() {
+    refFile = null; force = {}; drop = {};
+    $('refLoaded').classList.add('hidden'); $('refPick').classList.remove('hidden');
+    if (!tplFile) useAuto();
+    remerge(); refreshSteps();
   }
 
   function renderTray() {
@@ -2106,30 +2199,30 @@ if (typeof module !== 'undefined') module.exports = STYLED;
   /* ---------- 취합 ---------- */
   function remerge() {
     if (!tplWb) return;
-    if (!files.length) { summary = null; $('step4').classList.add('hidden'); renderSheets(); return; }
+    if (!allFiles().length) { summary = null; $('step4').classList.add('hidden'); renderSheets(); return; }
     // 자동으로 바꿔 둔 설정은 파일이 늘 때마다 다시 판단
     cfgs.forEach(function (c) {
       if (c.userSet) return;
       if (c.autoOff) { c.include = !c.hiddenTpl; c.autoOff = false; }
       if (c.autoCard) { c.mode = 'table'; c.autoCard = false; }
     });
-    summary = ENGINE.merge(cfgs, tplWb, files, { force: force, drop: drop });
+    summary = ENGINE.merge(cfgs, tplWb, allFiles(), { force: force, drop: drop });
     var again = false;
     cfgs.forEach(function (c) {       // 표로 읽어 아무것도 없고 표 제목도 없으면 세로형으로 시도
       if (c.userSet || !c.include || c.mode !== 'table' || c.filled || !c.suggestCard) return;
       c.mode = 'card'; c.autoCard = true; again = true;
     });
     if (again) {
-      summary = ENGINE.merge(cfgs, tplWb, files, { force: force, drop: drop });
+      summary = ENGINE.merge(cfgs, tplWb, allFiles(), { force: force, drop: drop });
       cfgs.forEach(function (c) { if (c.autoCard && !c.filled) { c.mode = 'table'; c.autoCard = false; } });
-      summary = ENGINE.merge(cfgs, tplWb, files, { force: force, drop: drop });
+      summary = ENGINE.merge(cfgs, tplWb, allFiles(), { force: force, drop: drop });
     }
     var off = false;
     cfgs.forEach(function (c) {       // 어느 학교도 쓰지 않은 시트(명부 등)는 빼 둠
       if (c.userSet || !c.include || c.filled) return;
       c.include = false; c.autoOff = true; off = true;
     });
-    if (off) summary = ENGINE.merge(cfgs, tplWb, files, { force: force, drop: drop });
+    if (off) summary = ENGINE.merge(cfgs, tplWb, allFiles(), { force: force, drop: drop });
     renderSheets();
     renderResult();
     renderTray();
@@ -2279,7 +2372,7 @@ if (typeof module !== 'undefined') module.exports = STYLED;
     if (t.getAttribute && t.getAttribute('data-reset')) {
       var c = cfgOf(activeSheet); if (!c) return;
       delete store[c.name]; saveStore();
-      var fresh = ENGINE.analyze(tplWb, files)[c.idx];
+      var fresh = ENGINE.analyze(tplWb, allFiles())[c.idx];
       Object.keys(fresh).forEach(function (k) { c[k] = fresh[k]; });
       c.userSet = false; c.autoOff = false; c.autoCard = false; force = {}; drop = {};
       renderSheets(); remerge();
@@ -2312,10 +2405,12 @@ if (typeof module !== 'undefined') module.exports = STYLED;
     $('step4').classList.remove('hidden');
     var total = 0;
     s.results.forEach(function (r) { s.sheets.forEach(function (c) { total += (r.counts[c.name] || 0); }); });
-    var zeroFiles = s.results.filter(function (r) { return !s.sheets.some(function (c) { return r.counts[c.name]; }); }).length;
+    var zeroFiles = s.results.filter(function (r) { return !r.inRef && !s.sheets.some(function (c) { return r.counts[c.name]; }); }).length;
     $('runMsg').innerHTML = '<b>' + s.results.length + '개 파일</b>에서 <b>' + total + '줄</b>을 모았습니다.' +
       (zeroFiles ? ' 모인 줄이 없는 파일이 ' + zeroFiles + '개 있습니다(학교별 현황에서 빨간 0).' : '') +
       (failed.length ? ' 열지 못한 파일 ' + failed.length + '개.' : '') +
+      (s.hasRef ? ' 이미 취합한 파일의 줄은 그대로 두었습니다.' : '') +
+      (s.refDup ? ' 그 파일에 똑같이 있는 줄 ' + s.refDup + '개는 학교 파일에서 넣지 않았습니다.' : '') +
       (s.dupDropped ? ' 여러 파일에 똑같이 들어 있던 줄 ' + s.dupDropped + '개는 한 줄만 남겼습니다.' : '') +
       (s.missing.length ? ' 양식 목록에 있는데 파일이 오지 않은 학교가 <b>' + s.missing.length + '곳</b> 있습니다(학교별 현황 맨 아래).' : '');
     $('ledger').innerHTML =
@@ -2340,7 +2435,11 @@ if (typeof module !== 'undefined') module.exports = STYLED;
       h = '<div class="tbl"><table class="list"><thead><tr><th>학교</th><th>파일</th>' + s.sheets.map(function (c) { return '<th>' + esc(c.name.length > 16 ? c.name.slice(0, 16) + '…' : c.name) + '</th>'; }).join('') + '<th>상태</th></tr></thead><tbody>' +
         s.results.map(function (r) {
           return '<tr><td><b>' + esc(r.school) + '</b></td><td style="font-size:12.5px;color:var(--sub)">' + esc(r.file) + '</td>' +
-            s.sheets.map(function (c) { var n = r.counts[c.name] || 0; return '<td class="n' + (n ? '' : ' zero') + '">' + n + '</td>'; }).join('') +
+            s.sheets.map(function (c) {
+              var n = r.counts[c.name] || 0;
+              if (!n && r.inRef) return '<td class="n" style="color:var(--sub);font-size:12.5px">취합본에 있음</td>';   // 이미 취합한 파일에 들어 있어 넣지 않음
+              return '<td class="n' + (n ? '' : ' zero') + '">' + n + '</td>';
+            }).join('') +
             '<td><span class="tag ' + (r.status === '정상' ? 'ok' : 'chk') + '">' + (r.status === '정상' ? '문제 없음' : '확인 필요') + '</span></td></tr>';
         }).join('') + s.missing.map(function (m) {
           return '<tr><td><b>' + esc(m) + '</b></td><td style="font-size:12.5px;color:var(--sub)">(파일 없음)</td>' + s.sheets.map(function () { return '<td class="n zero">-</td>'; }).join('') +
@@ -2479,6 +2578,9 @@ if (typeof module !== 'undefined') module.exports = STYLED;
   $('pickFiles').onclick = function () { $('fileInput').click(); };
   $('pickFolder').onclick = function () { $('folderInput').click(); };
   $('clearFiles').onclick = clearFiles;
+  $('pickRef').onclick = function () { $('refInput').click(); };
+  $('clearRef').onclick = clearRef;
+  $('refInput').onchange = function () { setRef(this.files[0]); this.value = ''; };
   $('tplInput').onchange = function () { setTpl(this.files[0]); this.value = ''; };
   $('fileInput').onchange = function () { addFiles(this.files); this.value = ''; };
   $('folderInput').onchange = function () { addFiles(this.files); this.value = ''; };

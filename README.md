@@ -7,7 +7,7 @@
 
 | 도구 | 파일 | 넣는 것 → 나오는 것 |
 |---|---|---|
-| 엑셀 취합기 | [tools/excel-merge.html](tools/excel-merge.html) | 학교에서 받은 엑셀들 (+ 빈 양식, 없어도 됨) → 양식 서식 그대로 취합 파일 |
+| 엑셀 취합기 | [tools/excel-merge.html](tools/excel-merge.html) | 학교에서 받은 엑셀들 (+ 빈 양식, 이미 취합해 둔 파일: 없어도 됨) → 양식 서식 그대로 취합 파일 |
 | 특근매식비 내역서 만들기 | [tools/overtime-meal.html](tools/overtime-meal.html) | 나이스 초과근무확인목록 → 제출용 내역서 4개 시트 |
 | 초과근무 미입력 찾기 | [tools/overtime-missing.html](tools/overtime-missing.html) | 나이스 목록 + 지문 기록 → 나이스에 넣을 시각 |
 | 관내출장여비 지급내역 만들기 | [tools/local-travel.html](tools/local-travel.html) | 대상목록 + 지난달 파일 → 일반여비·요약 + 근거자료 |
