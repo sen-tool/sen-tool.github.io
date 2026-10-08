@@ -78,6 +78,9 @@
     font-weight: 600;
   }
   .side nav a .tag { font-size: 0.7rem; color: #854F0B; font-weight: normal; margin-left: auto; }
+  /* 사용 중지(점검 중)인 도구 */
+  .side nav a.paused, .tile.paused, .tool.paused { opacity: 0.55; }
+  .side nav a .tag.stop, .tile .f .stop, .tool .stop { color: #B23A3A; font-weight: 700; }
   .side .foot {
     text-align: center;
     padding: 12px 10px 16px;
@@ -424,13 +427,13 @@
     <div class="group">여비</div>
     <a class="c-purple" href="#local-travel" data-id="local-travel"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>관내출장여비 지급내역</a>
     <div class="group">자료 취합</div>
-    <a class="c-pink" href="#excel-merge" data-id="excel-merge"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>엑셀 취합기</a>
+    <a class="c-pink paused" href="#excel-merge" data-id="excel-merge" title="점검 중이라 지금은 쓸 수 없습니다"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>엑셀 취합기<span class="tag stop">점검 중</span></a>
     <div class="group">계약 · 시설</div>
     <a class="c-coral" href="#contract-ledger" data-id="contract-ledger"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>공사대장 만들기<span class="tag">인터넷</span></a>
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.3.3 · 2026.10.07 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.3.4 · 2026.10.08 수정</a></div>
 </aside>
 
 <div class="main">
@@ -489,6 +492,12 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.3.4</b><span>2026.10.08</span></div>
+          <ul>
+            <li><b>엑셀 취합기 사용 중지(점검 중).</b> 취합 결과가 틀리게 나오는 경우가 있어 잠시 멈춥니다. 「도구 한 번에 받기」에서도 뺐습니다. 이미 받아 둔 취합 파일은 학교 원본과 한 번 더 대조해 주세요</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.3.3</b><span>2026.10.07</span></div>
           <ul>
@@ -649,11 +658,11 @@
           <div class="d">대상목록 + 지난달 파일 → 일반여비·요약 + 근거자료</div>
           <div class="f"><span>인터넷 없이 됨</span><span class="go">열기 →</span></div>
         </a>
-        <a class="tile c-pink" href="#excel-merge">
+        <a class="tile c-pink paused" href="#excel-merge">
           <div class="top"><span class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg></span><span class="cat">자료 취합</span></div>
           <div class="t">엑셀 취합기</div>
           <div class="d">학교에서 받은 엑셀들 (+ 빈 양식) → 양식 서식 그대로 취합 파일</div>
-          <div class="f"><span>인터넷 없이 됨</span><span class="go">열기 →</span></div>
+          <div class="f"><span class="stop">점검 중 · 지금은 쓸 수 없음</span><span class="go"></span></div>
         </a>
         <a class="tile c-coral" href="#contract-ledger">
           <div class="top"><span class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><span class="cat">계약 · 시설</span></div>
@@ -803,9 +812,9 @@
           </details>
         </div>
 
-        <div class="tool c-pink" data-id="excel-merge">
-          <h3><span class="dot"></span><a href="#excel-merge">엑셀 취합기</a></h3>
-          <p class="desc">학교에서 받은 엑셀을 빈 양식 하나로 모읍니다.</p>
+        <div class="tool c-pink paused" data-id="excel-merge">
+          <h3><span class="dot"></span><a href="#excel-merge">엑셀 취합기</a> <span class="stop">점검 중</span></h3>
+          <p class="desc"><b class="stop">취합 결과가 틀리게 나오는 경우가 있어 사용을 잠시 멈췄습니다.</b> 학교에서 받은 엑셀을 빈 양식 하나로 모읍니다.</p>
           <p class="io"><span class="in">학교에서 받은 엑셀들 (+ 빈 양식)</span><span class="arrow">→</span><span class="out">양식 서식 그대로 취합 파일</span><span class="net">· 인터넷 불필요</span></p>
           <details class="preview" open>
             <summary>결과 예시</summary>
@@ -873,8 +882,8 @@
   });
 
   (function () {
-    var VERSION = '1.3.3';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.10.07';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.3.4';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.10.08';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
@@ -1063,11 +1072,10 @@
 
     // 도구 한 번에 받기: 지금 사이트의 파일을 모아 압축 (항상 최신본)
     var BUNDLE = ['index.html',
-      'tools/overtime-meal.html', 'tools/overtime-missing.html', 'tools/local-travel.html', 'tools/excel-merge.html', 'tools/contract-ledger.html',
+      'tools/overtime-meal.html', 'tools/overtime-missing.html', 'tools/local-travel.html', 'tools/contract-ledger.html',   // 엑셀 취합기는 점검 중이라 뺌
       'samples/시험용_초과근무확인목록.xlsx',
       'samples/초과근무미입력_1_초과근무확인목록_2026년8월.xlsx', 'samples/초과근무미입력_2_지문기록_2026년8월.xlsx',
-      'samples/관내여비_1_대상목록_2026년8월.xlsx', 'samples/관내여비_3_근무상황부_2026년8월.xlsx',
-      'samples/엑셀취합_빈양식.xlsx', 'samples/엑셀취합_학교1_가나초.xlsx', 'samples/엑셀취합_학교2_다라중.xlsx'];
+      'samples/관내여비_1_대상목록_2026년8월.xlsx', 'samples/관내여비_3_근무상황부_2026년8월.xlsx'];
     var README_TXT = '업무 자동화 도구 (v' + VERSION + ' · ' + UPDATED + ')\r\n\r\n' +
       '1. 이 압축 파일을 원하는 폴더에 풀어 주세요.\r\n' +
       '2. index.html 을 더블클릭하면 첫 화면이 열립니다.\r\n' +
