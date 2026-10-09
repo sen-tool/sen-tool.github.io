@@ -436,7 +436,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.4.8 · 2026.10.09 14:00 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.4.9 · 2026.10.09 14:05 수정</a></div>
 </aside>
 
 <div class="main">
@@ -495,6 +495,12 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.4.9</b><span>2026.10.09 14:05</span></div>
+          <ul>
+            <li>고충민원 점검대장: 점검대장 서식을 도구에 넣어 두어 <b>민원처리대장만 넣으면</b> 만들어짐. 기간은 접수일을 보고 분기로 맞추고, 서식 제목·자료 대상 기간·시트 이름도 그 기간으로 고침 (새 서식을 받으면 「다른 서식 넣기」로 바꿔 쓸 수 있음)</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.4.8</b><span>2026.10.09 14:00</span></div>
           <ul>
@@ -903,11 +909,11 @@
         <div class="tool c-blue" data-id="complaint-ledger">
           <h3><span class="dot"></span><a href="#complaint-ledger">고충민원 점검대장 만들기</a></h3>
           <p class="desc">국민신문고 민원처리대장에서 분기 고충민원을 골라 점검대장 서식에 그대로 채웁니다.</p>
-          <p class="io"><span class="in">점검대장 서식 + 민원처리대장</span><span class="arrow">→</span><span class="out">서식 그대로 채운 점검대장</span><span class="net">· 인터넷 불필요</span></p>
+          <p class="io"><span class="in">민원처리대장 (서식은 내장)</span><span class="arrow">→</span><span class="out">서식 그대로 채운 점검대장</span><span class="net">· 인터넷 불필요</span></p>
           <details class="preview" open>
             <summary>결과 예시</summary>
             <p class="tiles"><span>넣을 민원 <b>11</b></span><span>자동 포함 <b>11</b></span><span>직접 확인 <b>2</b></span><span>뺀 민원 <b>1</b></span></p>
-            <p class="cap"><code>고충민원 점검대장_작성_20261009_0930.xlsx</code> · 가상 자료 · 28칸 중 일부, 주황 칸은 직접 작성</p>
+            <p class="cap"><code>2026년 3분기 고충민원 점검대장_작성_20261009_0930.xlsx</code> · 가상 자료 · 28칸 중 일부, 주황 칸은 직접 작성</p>
             <div class="xl">
               <div class="scroll">
                 <table>
@@ -968,8 +974,8 @@
   });
 
   (function () {
-    var VERSION = '1.4.8';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.10.09 14:00';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.4.9';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.10.09 14:05';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
@@ -1012,8 +1018,8 @@
         check: '「뺀 줄」·「확인 필요」 탭과 점검표로 빠진 학교, 예시로 판단해 뺀 줄을 확인하세요.'
       },
       'complaint-ledger': {
-        need: '분기 고충민원 점검대장 빈 서식 + 민원처리대장(엑셀): 국민신문고 › 민원관리 › 기간 설정(접수일) 후 검색 › 왼쪽 아래 「민원처리대장」. 「민원처리대장 상세」를 받으면 업무분야까지 채웁니다.',
-        steps: ['점검대장 서식과 민원처리대장 넣기 (기간은 서식 제목에서 읽음)', '「직접 확인」에서 일반·질의 민원 중 고충민원 체크', '바로 위 「점검대장 내려받기」'],
+        need: '민원처리대장(엑셀)만 있으면 됩니다. 점검대장 서식은 도구에 들어 있어 따로 넣지 않습니다. 받는 곳: 국민신문고 › 민원관리 › 기간 설정(접수일) 후 검색 › 왼쪽 아래 「민원처리대장」. 「민원처리대장 상세」를 받으면 업무분야까지 채웁니다.',
+        steps: ['민원처리대장 넣기 (기간은 접수일을 보고 분기로 맞춤, 다르면 고치기)', '「직접 확인」에서 일반·질의 민원 중 고충민원 체크', '바로 위 「점검대장 내려받기」'],
         check: '주황 칸(유형·제2조 호·답변요지·관련규정·추가답변 등)은 직접 작성하세요. 민원인 정보가 가려진 건은 국민신문고에서 직접 조회합니다.'
       },
       'contract-ledger': {
@@ -1029,7 +1035,7 @@
       'overtime-meal': { note: '가상 직원 3명의 7월 초과근무 자료', steps: [['#file', ['시험용_초과근무확인목록.xlsx']]] },
       'overtime-missing': { note: '가상 직원 4명의 8월 초과근무 목록과 지문 기록', steps: [['#f1', ['초과근무미입력_1_초과근무확인목록_2026년8월.xlsx']], ['#f2', ['초과근무미입력_2_지문기록_2026년8월.xlsx']]] },
       'local-travel': { note: '가상 직원 3명의 8월 관내출장 대상목록과 근무상황부', steps: [['#f1', ['관내여비_1_대상목록_2026년8월.xlsx']], ['#f3', ['관내여비_3_근무상황부_2026년8월.xlsx']]] },
-      'complaint-ledger': { note: '점검대장 서식과 가상 민원 14건의 민원처리대장', steps: [['#tplInput', ['고충민원_1_점검대장서식_2026년3분기.xlsx']], ['#fileInput', ['고충민원_2_민원처리대장_2026년3분기.xlsx']]] },
+      'complaint-ledger': { note: '가상 민원 14건의 민원처리대장', steps: [['#fileInput', ['고충민원_2_민원처리대장_2026년3분기.xlsx']]] },
       'excel-merge': { note: '가상 빈 양식과 학교 2곳의 제출 파일', steps: [['#tplInput', ['엑셀취합_빈양식.xlsx']], ['#fileInput', ['엑셀취합_학교1_가나초.xlsx', '엑셀취합_학교2_다라중.xlsx']]] }
     };
     var wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
