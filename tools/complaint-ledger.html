@@ -263,8 +263,11 @@ var CL = (function () {
       var d = new Date(Math.round((v - 25569) * 86400000));
       return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
     }
-    var m = /(\d{4})\s*[-.\/년]\s*(\d{1,2})\s*[-.\/월]\s*(\d{1,2})/.exec(String(v));
-    return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null;
+    var str = String(v).trim();
+    var m = /(\d{4})\s*[-.\/년]\s*(\d{1,2})\s*[-.\/월]\s*(\d{1,2})/.exec(str) || /^(\d{4})(\d{2})(\d{2})(?!\d)/.exec(str);   // 2026-07-15 / 20260715
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+    if (/^\d{5}(\.\d+)?$/.test(str)) return toDate(+str);                                       // 엑셀 날짜 숫자가 글자로 들어온 경우
+    return null;
   }
   function ymd(d) { return d ? d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2) : ''; }
   function serial(d) { return Math.round((Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) - Date.UTC(1899, 11, 30)) / 86400000); }
@@ -285,7 +288,7 @@ var CL = (function () {
     name: ['신청정보>이름', '이름', '신청인'], tel: ['신청정보>전화번호', '전화번호'], mobile: ['신청정보>휴대전화번호', '휴대전화번호', '휴대전화'],
     route1: ['민원신청경로>1단계'], route2: ['민원신청경로>2단계'], route: ['민원신청경로'],
     type: ['민원유형'], title: ['민원제목', '제목'], summary: ['민원요지'], cls: ['분류유형'],
-    doneAt: ['처리일자', '처리일시'], days: ['처리기간'], staff: ['담당자', '처리담당자'],
+    doneAt: ['처리일자', '처리일시', '처리완료일', '처리완료일자', '답변일자', '답변일시'], days: ['처리기간'], staff: ['담당자', '처리담당자'],
     work1: ['업무분야>대분류'], work2: ['업무분야>중분류'], work3: ['업무분야>소분류'],   // 민원처리대장 상세에만 있음
     d1: ['담당부서>1차분류'], d2: ['담당부서>2차분류'], d3: ['담당부서>3차분류'], d4: ['담당부서>4차분류'], d5: ['담당부서>5차분류'], dept: ['담당부서', '처리기관', '처리부서'],
     kind: ['민원종류'], proc1: ['처리유형>1단계'], proc2: ['처리유형>2단계'], proc: ['처리유형'],
@@ -866,11 +869,14 @@ if (typeof module !== 'undefined') module.exports = FILL;
     // 4) 요약
     var inc = items.filter(function (it) { return it.inc; });
     var look = inc.filter(function (it) { return CL.needsLookup(it.row); });
+    var noDone = inc.filter(function (it) { return !CL.toDate(it.row.doneAt); });
     $('sumMsg').innerHTML = '<b>' + inc.length + '건</b>을 점검대장에 넣습니다 (자동 ' + inc.filter(function (it) { return it.c.group === 'auto' && !it.picked; }).length + '건, 직접 고름 ' + inc.filter(function (it) { return it.picked; }).length + '건).' +
       (tpl ? '' : ' <b style="color:var(--err)">1번에 점검대장 서식을 넣어야 내려받을 수 있습니다.</b>');
     $('download').disabled = !tpl || !inc.length;
     $('needInfo').innerHTML = look.length ? '<p class="note">민원인 성함·휴대폰이 비어 있거나 가려진 민원이 <b>' + look.length + '건</b> 있습니다. 국민신문고에서 직접 조회해 채우세요 (유의사항 14번): ' +
       look.slice(0, 10).map(function (it) { return esc(it.row.no || it.row.title); }).join(', ') + (look.length > 10 ? ' 외' : '') + '</p>' : '';
+    if (noDone.length) $('needInfo').innerHTML += '<p class="note">처리일자가 비어 있는 민원이 <b>' + noDone.length + '건</b> 있어 「민원 처리일」이 빈칸으로 들어갑니다 (아직 처리 중이거나 처리대장에 날짜가 없음): ' +
+      noDone.slice(0, 10).map(function (it) { return esc(it.row.no || it.row.title) + (it.row.doneAt ? ' (' + esc(String(it.row.doneAt)) + ')' : ''); }).join(', ') + (noDone.length > 10 ? ' 외' : '') + '</p>';
   }
 
   /* ---------- 4) 내려받기 ---------- */
