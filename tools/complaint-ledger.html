@@ -180,8 +180,9 @@ footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--rule);color:v
     <tr><td class="auto">민원제목 · 민원요지</td><td>민원제목 · 민원요지 (요지는 줄여 쓰세요)</td></tr>
     <tr><td class="auto">민원 처리일 · 처리기간</td><td>처리일자(날짜만) · 처리기간</td></tr>
     <tr><td class="auto">민원종류 · 처리구분 · 최종만족도</td><td>민원종류 · 처리유형 2단계(괄호 앞) · 최종만족도</td></tr>
+    <tr><td class="auto">답변요지 (취하만)</td><td>처리유형이 「민원인 취하」면 「민원인이 민원을 취하함.」 그 밖의 민원은 직접 작성</td></tr>
     <tr><td class="auto">업무분야</td><td>민원처리대장 <b>상세</b>를 넣으면 업무분야 소분류(없으면 중분류·대분류). 기본 처리대장에는 없어 비워 둠</td></tr>
-    <tr><td class="man">유형 · 제2조 호 · 사무실 번호 · 답변요지 · 관련규정 · 추가답변 · 2차 민원 · 조치내역 · 기타 의견</td><td>처리대장에 없어 비워 둡니다 (유형은 서식의 목록에서 고르기. 추가답변은 내용을 적는 칸이라, 추가답변횟수가 있는 민원은 화면에 알려 줌)</td></tr>
+    <tr><td class="man">유형 · 제2조 호 · 사무실 번호 · 답변요지(취하 빼고) · 관련규정 · 추가답변 · 2차 민원 · 조치내역 · 기타 의견</td><td>처리대장에 없어 비워 둡니다 (유형은 서식의 목록에서 고르기. 추가답변은 내용을 적는 칸이라, 추가답변횟수가 있는 민원은 화면에 알려 줌)</td></tr>
   </table>
   </details>
 </section>
@@ -425,10 +426,12 @@ var CL = (function () {
     cells[14] = s(row.route2 || row.route1 || row.route);            // O 민원신청 경로
     cells[15] = s(row.title);                                        // P 민원제목
     cells[16] = s(row.summary);                                      // Q 민원요지
+    var proc = procOf(row.proc2 || row.proc);
+    if (/취하/.test(proc)) cells[17] = s('민원인이 민원을 취하함.');     // R 답변요지: 민원인 취하면 정해진 문구 (그 밖은 직접 작성)
     cells[18] = dt(toDate(row.doneAt));                              // S 민원 처리일
     cells[19] = row.days === '' || row.days == null ? null : nm(row.days);   // T 처리기간
     cells[21] = s(row.kind);                                         // V 민원종류
-    cells[22] = s(procOf(row.proc2 || row.proc));                    // W 처리구분
+    cells[22] = s(proc);                                             // W 처리구분
     cells[23] = s(row.sat);                                          // X 최종만족도
     // Y 추가답변: 추가답변 '내용'을 적는 칸이라 처리대장(횟수뿐)으로는 채우지 않음. 횟수가 있으면 화면에서 알려 줌
     return cells;
@@ -810,7 +813,7 @@ var BUILTIN_TPL = 'UEsDBBQAAAAIAAAAIQAOmliidwEAAOQFAAATAAAAW0NvbnRlbnRfVHlwZXNdL
     ['no', 3, 'copy'], ['recvNo', 3, 'alt', '신청번호가 비었을 때'], ['recvAt', 4, 'tf', '날짜만'], ['applyAt', 4, 'alt', '접수일시가 비었을 때'],
     ['name', 5, 'copy'], ['mobile', 6, 'tf', '010-0000-0000 꼴로'], ['tel', 6, 'alt', '휴대전화번호가 비고 전화번호가 010…일 때'], ['tel', 7, 'tf', '010…이면 하이픈 넣음'], ['staff', 12, 'copy'],
     ['route2', 14, 'copy'], ['route1', 14, 'alt', '2단계가 비었을 때'], ['title', 15, 'copy'], ['summary', 16, 'copy'],
-    ['doneAt', 18, 'tf', '날짜만'], ['days', 19, 'copy'], ['kind', 21, 'copy'], ['proc2', 22, 'tf', '괄호 앞만: 해결(수용) → 해결'],
+    ['doneAt', 18, 'tf', '날짜만'], ['days', 19, 'copy'], ['kind', 21, 'copy'], ['proc2', 22, 'tf', '괄호 앞만: 해결(수용) → 해결'], ['proc2', 17, 'alt', '민원인 취하면 「민원인이 민원을 취하함.」, 그 밖은 직접 작성'],
     ['sat', 23, 'copy'], ['work', 9, 'tf', '가장 자세한 분류 (상세 처리대장)']
   ];
   function drawMap(src) {
