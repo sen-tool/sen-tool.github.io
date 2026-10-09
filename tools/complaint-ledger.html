@@ -73,6 +73,17 @@ table.list .why{font-size:12px;color:var(--sub)}
 .status{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin:0 0 12px;color:var(--sub);font-size:13.5px}
 .status .savebox{margin-left:auto;display:flex;align-items:center;gap:10px}
 .empty{padding:26px;color:var(--sub);text-align:center}
+.mapwrap{overflow-x:auto;border:1px solid var(--rule);border-radius:var(--r);background:#fcfcfb;padding:6px 0;margin-bottom:12px}
+#mapSvg{display:block;width:100%;min-width:680px;height:auto;font-family:inherit}
+#mapSvg .lk{fill:none;stroke-width:1.6;transition:opacity .12s}
+#mapSvg .bx{cursor:default;transition:opacity .12s}
+#mapSvg.hl .lk{opacity:.1} #mapSvg.hl .lk.on{opacity:1;stroke-width:2.8}
+#mapSvg.hl .bx{opacity:.35} #mapSvg.hl .bx.on{opacity:1}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12.5px;color:var(--sub);margin:0 0 8px}
+.legend i{display:inline-block;width:22px;height:0;border-top:2.5px solid;vertical-align:middle;margin-right:5px}
+.legend b{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:5px;border:1px solid}
+#mapSrc{font-size:12.5px;color:var(--sub);margin:0 0 6px}
+#howto details summary{cursor:pointer;color:var(--teal);font-size:13px;margin:4px 0 8px}
 #howto .map{border-collapse:collapse;font-size:12.5px;width:100%}
 #howto .map th,#howto .map td{border:1px solid #e3e0d9;padding:5px 9px;text-align:left;vertical-align:top}
 #howto .map th{background:#f3f2ee;white-space:nowrap}
@@ -148,8 +159,19 @@ footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--rule);color:v
 </section>
 
 <section class="card" id="howto">
-  <h2>이렇게 채웁니다</h2>
-  <p class="lead">처리대장에 있는 칸은 그대로 옮기고, 판단이 필요한 칸은 비워 둡니다. <span class="auto">초록</span>은 자동, <span class="man">주황</span>은 직접 작성입니다.</p>
+  <h2>어느 칸이 어디로 가나요</h2>
+  <p class="lead">왼쪽 민원처리대장 칸이 오른쪽 점검대장 칸으로 옮겨집니다. 칸에 마우스를 올리면 그 칸의 선만 진하게 보입니다.</p>
+  <div class="legend">
+    <span><i style="border-color:#1C7A50"></i>그대로 옮김</span>
+    <span><i style="border-color:#3A6EA5"></i>바꿔서 옮김 (날짜만, 괄호 앞 등)</span>
+    <span><i style="border-color:#9AA6AE;border-top-style:dashed"></i>왼쪽이 비었을 때 대신 씀</span>
+    <span><b style="background:#EDF2F8;border-color:#C9D7E8"></b>도구가 넣는 값</span>
+    <span><b style="background:#FFF4DE;border-color:#EBCE92"></b>직접 작성 (비워 둠)</span>
+    <span><b style="background:#f3f2ee;border-color:#ddd"></b>고르기에만 씀</span>
+  </div>
+  <p id="mapSrc"></p>
+  <div class="mapwrap"><svg id="mapSvg" role="img" aria-label="민원처리대장 칸과 점검대장 칸의 연결"></svg></div>
+  <details><summary>표로 보기</summary>
   <table class="map">
     <tr><th>점검대장 칸</th><th>민원처리대장에서</th></tr>
     <tr><td class="auto">순</td><td>접수일 순서로 1, 2, 3 …</td></tr>
@@ -164,6 +186,7 @@ footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--rule);color:v
     <tr><td class="auto">추가답변</td><td>추가답변횟수가 있으면 「추가답변 N회」</td></tr>
     <tr><td class="man">유형 · 업무분야 · 제2조 호 · 사무실 번호 · 답변요지 · 관련규정 · 2차 민원 · 조치내역 · 기타 의견</td><td>처리대장에 없어 비워 둡니다 (유형은 서식의 목록에서 고르기)</td></tr>
   </table>
+  </details>
 </section>
 
 <input type="file" id="tplInput" accept=".xlsx,.xlsm" class="hidden">
@@ -299,6 +322,7 @@ var CL = (function () {
       var ws = wb.Sheets[sn], h = headerOf(ws);
       if (!h) return false;
       out.sheet = sn;
+      out.col = h.col;                              // 찾은 칸 (매칭 그림에 실제 열 글자로 보여 줌)
       ['no', 'recvAt', 'title', 'kind'].forEach(function (f) { if (h.col[f] == null) out.missing.push(FIELDS[f][0]); });
       for (var r = h.first; r <= h.last; r++) {
         var g = function (f) { return h.col[f] == null ? '' : txt(ws[A(r, h.col[f])]); };
@@ -623,7 +647,7 @@ if (typeof module !== 'undefined') module.exports = FILL;
       chain = chain.then(function () { return readBuf(f); }).then(function (buf) {
         var wb = buf ? parse(buf) : null, r = wb ? CL.readLedger(wb, f.name) : null;
         if (!r || !r.sheet) { failed.push(f.name + (wb ? ' (민원처리대장 칸을 못 찾음)' : ' (열 수 없음)')); return; }
-        sources.push({ name: f.name, size: f.size, rows: r.rows, missing: r.missing });
+        sources.push({ name: f.name, size: f.size, rows: r.rows, missing: r.missing, col: r.col });
       });
     });
     chain.then(refresh);
@@ -644,6 +668,104 @@ if (typeof module !== 'undefined') module.exports = FILL;
     items.sort(function (a, b) { return (a.c.recv || 0) - (b.c.recv || 0) || String(a.row.no).localeCompare(String(b.row.no)); });
     $('periodNote').textContent = period ? '' : '기간을 정하지 않으면 모든 접수일을 봅니다.';
   }
+  /* ---------- 매칭 그림: 처리대장 칸 → 점검대장 칸 ---------- */
+  var LEFT = [   // [필드, 기본 열, 이름, 고르기에 쓰는 곳]
+    ['no', 'A', '신청번호', '같은 민원 한 번만'], ['applyAt', 'B', '신청일시'], ['recvNo', 'C', '접수번호'], ['recvAt', 'D', '접수일시', '기간 판단'],
+    ['name', 'E', '신청정보 › 이름'], ['tel', 'G', '신청정보 › 전화번호'], ['mobile', 'H', '신청정보 › 휴대전화번호'],
+    ['route1', 'K', '민원신청경로 › 1단계'], ['route2', 'L', '민원신청경로 › 2단계'], ['type', 'R', '민원유형', '취하 판단'],
+    ['title', 'Z', '민원제목'], ['summary', 'AA', '민원요지'], ['cls', 'AB', '분류유형', '고충민원 판단'],
+    ['doneAt', 'AJ', '처리일자'], ['days', 'AK', '처리기간'], ['dept', 'AL~AP', '담당부서 › 1~5차 분류'], ['staff', 'AQ', '담당자'],
+    ['kind', 'AS', '민원종류', '고충민원 판단'], ['proc1', 'AT', '처리유형 › 1단계', '취하 판단'], ['proc2', 'AU', '처리유형 › 2단계', '취하 판단'],
+    ['sat', 'AW', '최종만족도'], ['addCnt', 'AY', '추가답변횟수']
+  ];
+  var RIGHT = ['순', '기관구분', '부서명', '민원 신청번호', '접수일자', '성함', '휴대폰 번호', '유선번호', '유형', '업무분야', '민원구분', '민원구분(제2조 호)',
+    '담당자 성명', '사무실 번호', '민원신청 경로', '민원제목', '민원요지', '답변요지', '민원 처리일', '민원처리 기간', '관련규정', '민원종류', '처리구분',
+    '최종만족도', '추가답변', '2차 민원 신청번호', '답변 후 조치내역', '주무부서 기타 의견'];
+  var CONST = { 0: '접수일 순 번호', 10: '「고충민원」' };
+  var LINKS = [  // [필드, 점검대장 칸 번호, 종류 copy|tf|alt, 설명]
+    ['dept', 1, 'tf', '교육지원청·직속기관 이름, 없으면 본청'], ['dept', 2, 'tf', '마지막 단계'],
+    ['no', 3, 'copy'], ['recvNo', 3, 'alt', '신청번호가 비었을 때'], ['recvAt', 4, 'tf', '날짜만'], ['applyAt', 4, 'alt', '접수일시가 비었을 때'],
+    ['name', 5, 'copy'], ['mobile', 6, 'copy'], ['tel', 7, 'copy'], ['staff', 12, 'copy'],
+    ['route2', 14, 'copy'], ['route1', 14, 'alt', '2단계가 비었을 때'], ['title', 15, 'copy'], ['summary', 16, 'copy'],
+    ['doneAt', 18, 'tf', '날짜만'], ['days', 19, 'copy'], ['kind', 21, 'copy'], ['proc2', 22, 'tf', '괄호 앞만: 해결(수용) → 해결'],
+    ['sat', 23, 'copy'], ['addCnt', 24, 'tf', '1 이상이면 「추가답변 N회」']
+  ];
+  function drawMap(src) {
+    var col = src ? src.col || {} : null;
+    var letter = function (f, def) {
+      if (!col) return def;
+      if (f === 'dept') {
+        var ds = ['d1', 'd2', 'd3', 'd4', 'd5'].filter(function (k) { return col[k] != null; }).map(function (k) { return col[k]; });
+        if (ds.length) { var a = XLSX.utils.encode_col(Math.min.apply(null, ds)), b = XLSX.utils.encode_col(Math.max.apply(null, ds)); return a === b ? a : a + '~' + b; }
+        return col.dept != null ? XLSX.utils.encode_col(col.dept) : null;
+      }
+      if (col[f] == null && f === 'route1' && col.route != null) return XLSX.utils.encode_col(col.route);
+      if (col[f] == null && f === 'proc2' && col.proc != null) return XLSX.utils.encode_col(col.proc);
+      return col[f] != null ? XLSX.utils.encode_col(col[f]) : null;
+    };
+    $('mapSrc').innerHTML = src ? '열 글자는 넣으신 <b>' + esc(src.name) + '</b>에서 실제로 찾은 위치입니다. 빨간 칸은 그 파일에서 찾지 못한 칸입니다.'
+      : '열 글자는 국민신문고 민원처리대장 기본 모양 기준입니다. 처리대장을 넣으면 그 파일에서 찾은 위치로 바뀝니다.';
+    var W = 940, RH = 27, top = 12, LX = 12, LW = 300, RX = 628, RW = 300;
+    var H = top * 2 + RIGHT.length * RH, LH = (RIGHT.length * RH) / LEFT.length;
+    var ly = {}, ry = {}, out = '';
+    var linked = {}; LINKS.forEach(function (l) { linked[l[1]] = true; });
+    var note = {}; LINKS.forEach(function (l) { if (l[2] === 'tf') note[l[1]] = l[3]; });
+    // 왼쪽: 민원처리대장
+    out += '<text x="' + LX + '" y="9" font-size="11.5" fill="#5F6B73" font-weight="700">민원처리대장</text>';
+    out += '<text x="' + RX + '" y="9" font-size="11.5" fill="#5F6B73" font-weight="700">고충민원 점검대장</text>';
+    LEFT.forEach(function (it, i) {
+      var y = top + i * LH + (LH - 22) / 2, L = letter(it[0], it[1]), miss = L == null, used = LINKS.some(function (l) { return l[0] === it[0]; });
+      ly[it[0]] = y + 11;
+      var fill = miss ? '#FDEDED' : used ? '#fff' : '#f3f2ee', stroke = miss ? '#E8B4B4' : '#D7D3CB';
+      out += '<g class="bx" data-f="' + it[0] + '"><title>' + esc(it[2] + (it[3] ? ' (' + it[3] + ')' : '') + (miss ? ' — 이 파일에서 찾지 못함' : '')) + '</title>' +
+        '<rect x="' + LX + '" y="' + y + '" width="' + LW + '" height="22" rx="5" fill="' + fill + '" stroke="' + stroke + '"/>' +
+        '<text x="' + (LX + 8) + '" y="' + (y + 15) + '" font-size="12" font-weight="700" fill="' + (miss ? '#B23A3A' : '#2F5D8F') + '">' + esc(miss ? '없음' : L) + '</text>' +
+        '<text x="' + (LX + 58) + '" y="' + (y + 15) + '" font-size="12" fill="#2B3137">' + esc(it[2]) + '</text>' +
+        (it[3] ? '<text x="' + (LX + LW - 8) + '" y="' + (y + 15) + '" font-size="10.5" fill="#8A5A00" text-anchor="end">' + esc(it[3]) + '</text>' : '') + '</g>';
+    });
+    // 오른쪽: 점검대장 A~AB
+    RIGHT.forEach(function (nm, c) {
+      var y = top + c * RH + 2, cls = linked[c] ? 'auto' : CONST[c] ? 'const' : 'man';
+      ry[c] = y + 11;
+      var fill = cls === 'auto' ? '#E7F5EC' : cls === 'const' ? '#EDF2F8' : '#FFF4DE', stroke = cls === 'auto' ? '#BEE0CC' : cls === 'const' ? '#C9D7E8' : '#EBCE92';
+      var sub = CONST[c] || note[c] || (cls === 'man' ? '직접 작성' : '');
+      out += '<g class="bx" data-t="' + c + '"><title>' + esc(XLSX.utils.encode_col(c) + ' ' + nm + (sub ? ' — ' + sub : '')) + '</title>' +
+        '<rect x="' + RX + '" y="' + y + '" width="' + RW + '" height="22" rx="5" fill="' + fill + '" stroke="' + stroke + '"/>' +
+        '<text x="' + (RX + 8) + '" y="' + (y + 15) + '" font-size="12" font-weight="700" fill="#2F5D8F">' + XLSX.utils.encode_col(c) + '</text>' +
+        '<text x="' + (RX + 36) + '" y="' + (y + 15) + '" font-size="12" fill="' + (cls === 'man' ? '#8A5A00' : '#2B3137') + '">' + esc(nm) + '</text>' +
+        (sub ? '<text x="' + (RX + RW - 8) + '" y="' + (y + 15) + '" font-size="10.5" fill="#5F6B73" text-anchor="end">' + esc(sub.length > 22 ? sub.slice(0, 21) + '…' : sub) + '</text>' : '') + '</g>';
+    });
+    // 선
+    var lines = '';
+    LINKS.forEach(function (l) {
+      var y1 = ly[l[0]], y2 = ry[l[1]], x1 = LX + LW, x2 = RX, mx = (x1 + x2) / 2;
+      var miss = letter(l[0], 'x') == null;
+      var color = miss ? '#E8B4B4' : l[2] === 'copy' ? '#1C7A50' : l[2] === 'tf' ? '#3A6EA5' : '#9AA6AE';
+      lines += '<path class="lk" data-f="' + l[0] + '" data-t="' + l[1] + '" d="M' + x1 + ',' + y1 + ' C' + mx + ',' + y1 + ' ' + mx + ',' + y2 + ' ' + x2 + ',' + y2 + '" stroke="' + color + '"' +
+        (l[2] === 'alt' || miss ? ' stroke-dasharray="5 4"' : '') + '><title>' + esc((l[3] || '그대로')) + '</title></path>';
+    });
+    var svg = $('mapSvg');
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.innerHTML = lines + out;
+  }
+  // 칸에 마우스를 올리면 연결된 선과 칸만 진하게
+  (function () {
+    var svg = $('mapSvg');
+    function clear() { svg.classList.remove('hl'); Array.prototype.forEach.call(svg.querySelectorAll('.on'), function (e) { e.classList.remove('on'); }); }
+    svg.addEventListener('mouseover', function (e) {
+      var g = e.target.closest('.bx, .lk'); clear(); if (!g) return;
+      var f = g.getAttribute('data-f'), t = g.getAttribute('data-t'), isLk = g.classList.contains('lk');
+      var lks = Array.prototype.filter.call(svg.querySelectorAll('.lk'), function (l) { return isLk ? l === g : (f != null ? l.getAttribute('data-f') === f : l.getAttribute('data-t') === t); });
+      svg.classList.add('hl'); g.classList.add('on');
+      lks.forEach(function (l) {
+        l.classList.add('on');
+        var a = svg.querySelector('.bx[data-f="' + l.getAttribute('data-f') + '"]'), b = svg.querySelector('.bx[data-t="' + l.getAttribute('data-t') + '"]');
+        if (a) a.classList.add('on'); if (b) b.classList.add('on');
+      });
+    });
+    svg.addEventListener('mouseleave', clear);
+  })();
+
   function refresh() {
     $('step1').classList.toggle('todo', !tpl);
     $('step2').classList.toggle('todo', !sources.length);
@@ -652,6 +774,7 @@ if (typeof module !== 'undefined') module.exports = FILL;
     $('srcName').innerHTML = sources.map(function (s) { return esc(s.name) + ' <span class="sub" style="display:inline">(' + s.rows.length + '건)</span>'; }).join('<br>') +
       (failed.length ? '<span class="sub" style="color:var(--err)">' + failed.map(esc).join('<br>') + '</span>' : '') +
       (sources.some(function (s) { return s.missing.length; }) ? '<span class="sub" style="color:var(--warn)">처리대장에 없는 칸: ' + esc(sources.map(function (s) { return s.missing.join(', '); }).filter(Boolean).join(' / ')) + '</span>' : '');
+    drawMap(sources[0] || null);
     var on = sources.length > 0;
     $('step3').classList.toggle('hidden', !on);
     $('step4').classList.toggle('hidden', !on);
@@ -744,6 +867,7 @@ if (typeof module !== 'undefined') module.exports = FILL;
   $('clearFiles').onclick = clearFiles;
   $('tplInput').onchange = function () { setTpl(this.files[0]); this.value = ''; };
   $('fileInput').onchange = function () { addFiles(this.files); this.value = ''; };
+  drawMap(null);
 })();
 </script>
 </body>
