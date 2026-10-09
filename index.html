@@ -436,7 +436,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.4.3 · 2026.10.09 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.4.4 · 2026.10.09 수정</a></div>
 </aside>
 
 <div class="main">
@@ -495,6 +495,12 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.4.4</b><span>2026.10.09</span></div>
+          <ul>
+            <li>고충민원 점검대장: 처리일자(→ 민원 처리일)를 「20260715」, 엑셀 날짜 숫자 등 다른 모양으로 적혀 있어도 읽음. 칸 이름이 처리일시·처리완료일·답변일자여도 인식. 처리일자가 빈 민원은 화면에 알려 줌</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.4.3</b><span>2026.10.09</span></div>
           <ul>
@@ -938,7 +944,7 @@
   });
 
   (function () {
-    var VERSION = '1.4.3';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var VERSION = '1.4.4';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
     var UPDATED = '2026.10.09';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
