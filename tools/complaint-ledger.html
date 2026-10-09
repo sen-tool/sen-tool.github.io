@@ -181,9 +181,8 @@ footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--rule);color:v
     <tr><td class="auto">민원제목 · 민원요지</td><td>민원제목 · 민원요지 (요지는 줄여 쓰세요)</td></tr>
     <tr><td class="auto">민원 처리일 · 처리기간</td><td>처리일자(날짜만) · 처리기간</td></tr>
     <tr><td class="auto">민원종류 · 처리구분 · 최종만족도</td><td>민원종류 · 처리유형 2단계(괄호 앞) · 최종만족도</td></tr>
-    <tr><td class="auto">추가답변</td><td>추가답변횟수가 있으면 「추가답변 N회」</td></tr>
     <tr><td class="auto">업무분야</td><td>민원처리대장 <b>상세</b>를 넣으면 업무분야 소분류(없으면 중분류·대분류). 기본 처리대장에는 없어 비워 둠</td></tr>
-    <tr><td class="man">유형 · 제2조 호 · 사무실 번호 · 답변요지 · 관련규정 · 2차 민원 · 조치내역 · 기타 의견</td><td>처리대장에 없어 비워 둡니다 (유형은 서식의 목록에서 고르기)</td></tr>
+    <tr><td class="man">유형 · 제2조 호 · 사무실 번호 · 답변요지 · 관련규정 · 추가답변 · 2차 민원 · 조치내역 · 기타 의견</td><td>처리대장에 없어 비워 둡니다 (유형은 서식의 목록에서 고르기. 추가답변은 내용을 적는 칸이라, 추가답변횟수가 있는 민원은 화면에 알려 줌)</td></tr>
   </table>
   </details>
 </section>
@@ -395,7 +394,6 @@ var CL = (function () {
     var s = function (v) { v = v instanceof Date ? ymd(v) : String(v == null ? '' : v).trim(); return v ? { t: 's', v: v } : null; };
     var dt = function (d) { return d ? { t: 'd', v: d } : null; };
     var nm = function (v) { var n = +String(v).replace(/[^\d.-]/g, ''); return String(v).trim() !== '' && isFinite(n) ? { t: 'n', v: n } : s(v); };
-    var add = +String(row.addCnt || '').replace(/[^\d]/g, '') || 0;
     var cells = new Array(28).fill(null);
     cells[0] = { t: 'n', v: seq };                                   // A 순
     cells[1] = s(orgOverride || c.org);                              // B 기관구분
@@ -416,13 +414,14 @@ var CL = (function () {
     cells[21] = s(row.kind);                                         // V 민원종류
     cells[22] = s(procOf(row.proc2 || row.proc));                    // W 처리구분
     cells[23] = s(row.sat);                                          // X 최종만족도
-    cells[24] = add ? s('추가답변 ' + add + '회') : null;              // Y 추가답변
+    // Y 추가답변: 추가답변 '내용'을 적는 칸이라 처리대장(횟수뿐)으로는 채우지 않음. 횟수가 있으면 화면에서 알려 줌
     return cells;
   }
+  function addCount(row) { return +String(row.addCnt || '').replace(/[^\d]/g, '') || 0; }
   function needsLookup(row) { return !String(row.name || '').trim() || !String(row.mobile || '').trim() || blind(row.name) || blind(row.mobile); }
 
   return { readLedger: readLedger, parsePeriod: parsePeriod, classify: classify, dedupe: dedupe, toFormRow: toFormRow,
-           needsLookup: needsLookup, toDate: toDate, ymd: ymd, serial: serial };
+           needsLookup: needsLookup, addCount: addCount, toDate: toDate, ymd: ymd, serial: serial };
 })();
 if (typeof module !== 'undefined') module.exports = CL;
 </script>
@@ -722,7 +721,7 @@ if (typeof module !== 'undefined') module.exports = FILL;
     ['title', 'Z', '민원제목'], ['summary', 'AA', '민원요지'], ['cls', 'AB', '분류유형', '고충민원 판단'],
     ['doneAt', 'AJ', '처리일자'], ['days', 'AK', '처리기간'], ['dept', 'AL~AP', '담당부서 › 1~5차 분류'], ['staff', 'AQ', '담당자 · 처리담당자'],
     ['kind', 'AS', '민원종류', '고충민원 판단'], ['proc1', 'AT', '처리유형 › 1단계', '취하면 무조건 포함'], ['proc2', 'AU', '처리유형 › 2단계', '취하면 무조건 포함'],
-    ['sat', 'AW', '최종만족도'], ['addCnt', 'AY', '추가답변횟수'], ['work', null, '업무분야 › 대·중·소분류', '', true]
+    ['sat', 'AW', '최종만족도'], ['addCnt', 'AY', '추가답변횟수', '있으면 화면에 알림'], ['work', null, '업무분야 › 대·중·소분류', '', true]
   ];
   var RIGHT = ['순', '기관구분', '부서명', '민원 신청번호', '접수일자', '성함', '휴대폰 번호', '유선번호', '유형', '업무분야', '민원구분', '민원구분(제2조 호)',
     '담당자 성명', '사무실 번호', '민원신청 경로', '민원제목', '민원요지', '답변요지', '민원 처리일', '민원처리 기간', '관련규정', '민원종류', '처리구분',
@@ -734,7 +733,7 @@ if (typeof module !== 'undefined') module.exports = FILL;
     ['name', 5, 'copy'], ['mobile', 6, 'copy'], ['tel', 7, 'copy'], ['staff', 12, 'copy'],
     ['route2', 14, 'copy'], ['route1', 14, 'alt', '2단계가 비었을 때'], ['title', 15, 'copy'], ['summary', 16, 'copy'],
     ['doneAt', 18, 'tf', '날짜만'], ['days', 19, 'copy'], ['kind', 21, 'copy'], ['proc2', 22, 'tf', '괄호 앞만: 해결(수용) → 해결'],
-    ['sat', 23, 'copy'], ['addCnt', 24, 'tf', '1 이상이면 「추가답변 N회」'], ['work', 9, 'tf', '가장 자세한 분류 (상세 처리대장)']
+    ['sat', 23, 'copy'], ['work', 9, 'tf', '가장 자세한 분류 (상세 처리대장)']
   ];
   function drawMap(src) {
     var col = src ? src.col || {} : null;
@@ -872,6 +871,9 @@ if (typeof module !== 'undefined') module.exports = FILL;
     $('download').disabled = !tpl || !inc.length;
     $('needInfo').innerHTML = look.length ? '<p class="note">민원인 성함·휴대폰이 비어 있거나 가려진 민원이 <b>' + look.length + '건</b> 있습니다. 국민신문고에서 직접 조회해 채우세요 (유의사항 14번): ' +
       look.slice(0, 10).map(function (it) { return esc(it.row.no || it.row.title); }).join(', ') + (look.length > 10 ? ' 외' : '') + '</p>' : '';
+    var adds = inc.filter(function (it) { return CL.addCount(it.row) > 0; });
+    if (adds.length) $('needInfo').innerHTML += '<p class="note">추가답변이 있는 민원이 <b>' + adds.length + '건</b> 있습니다. 「추가답변」 칸에 추가답변 내용을 직접 적으세요: ' +
+      adds.slice(0, 10).map(function (it) { return esc(it.row.no || it.row.title) + ' (' + CL.addCount(it.row) + '회)'; }).join(', ') + (adds.length > 10 ? ' 외' : '') + '</p>';
     if (noDone.length) $('needInfo').innerHTML += '<p class="note">처리일자가 비어 있는 민원이 <b>' + noDone.length + '건</b> 있어 「민원 처리일」이 빈칸으로 들어갑니다 (아직 처리 중이거나 처리대장에 날짜가 없음): ' +
       noDone.slice(0, 10).map(function (it) { return esc(it.row.no || it.row.title) + (it.row.doneAt ? ' (' + esc(String(it.row.doneAt)) + ')' : ''); }).join(', ') + (noDone.length > 10 ? ' 외' : '') + '</p>';
   }
