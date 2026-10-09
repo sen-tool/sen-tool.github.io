@@ -1,6 +1,6 @@
 # 업무 자동화 도구
 
-교육지원청 서무·시설 업무에서 매달 반복되는 엑셀 작업을 **설치 없이 HTML 파일 하나로** 처리하는 도구 5종입니다.
+교육지원청 서무·시설 업무에서 매달 반복되는 엑셀 작업을 **설치 없이 HTML 파일 하나로** 처리하는 도구 6종입니다.
 넣으신 자료는 이 PC 밖으로 나가지 않습니다. (공사대장만 조회할 때 조달청 서버 `apis.data.go.kr`에 접속합니다)
 
 ## 도구 목록
@@ -12,6 +12,7 @@
 | 초과근무 미입력 찾기 | [tools/overtime-missing.html](tools/overtime-missing.html) | 나이스 목록 + 지문 기록 → 나이스에 넣을 시각 |
 | 관내출장여비 지급내역 만들기 | [tools/local-travel.html](tools/local-travel.html) | 대상목록 + 지난달 파일 → 일반여비·요약 + 근거자료 |
 | 공사대장 만들기 | [tools/contract-ledger.html](tools/contract-ledger.html) | 인증키·기관코드·기간 → 계약 21개 항목 엑셀 |
+| 고충민원 점검대장 만들기 | [tools/complaint-ledger.html](tools/complaint-ledger.html) | 점검대장 서식 + 국민신문고 민원처리대장 → 서식 그대로 채운 분기 고충민원 점검대장 |
 
 시험해 볼 자료: [samples/](samples/) 폴더 (모두 가짜 이름·가짜 학교로 만든 자료). 웹 주소에서는 도구 화면의 「쓰는 법 · 결과 예시」 → **예시 파일로 해 보기**를 누르면 바로 들어갑니다.
 
