@@ -6,4 +6,4 @@
 - 합친 뒤 사용자에게 무엇이 바뀌었는지와 풀 리퀘스트 링크를 알려 준다. 사이트(https://sen-tool.github.io/)는 몇 분 뒤 반영된다.
 
 ## 버전
-- 도구를 고치면 `index.html`의 `VERSION`·`UPDATED`와 업데이트 소식(`#updates`)을 함께 올린다. `VERSION`이 바뀌어야 예전 화면이 남지 않는다.
+- 도구를 고치면 `index.html`의 `VERSION`·`UPDATED`(날짜와 시각, 한국 시간 예: 2026.10.09 14:00)와 업데이트 소식(`#updates`)을 함께 올린다. `VERSION`이 바뀌어야 예전 화면이 남지 않는다.
