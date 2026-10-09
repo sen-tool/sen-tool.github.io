@@ -174,7 +174,7 @@ footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--rule);color:v
     <tr><td class="auto">순</td><td>접수일 순서로 1, 2, 3 …</td></tr>
     <tr><td class="auto">기관구분 · 부서명</td><td>담당부서(1~5차 분류): 교육지원청·직속기관 이름은 기관구분, 마지막 단계는 부서명. 본청이면 「본청」</td></tr>
     <tr><td class="auto">민원 신청번호 · 접수일자</td><td>신청번호 · 접수일시(날짜만)</td></tr>
-    <tr><td class="auto">성함 · 휴대폰 · 유선번호</td><td>신청정보의 이름 · 휴대전화번호 · 전화번호 (가려져 있으면 국민신문고에서 직접 조회)</td></tr>
+    <tr><td class="auto">성함 · 휴대폰 · 유선번호</td><td>신청정보의 이름 · 휴대전화번호 · 전화번호. 010 같은 휴대폰 번호는 010-0000-0000 꼴로 맞추고, 휴대전화번호가 비었는데 전화번호가 휴대폰 번호면 휴대폰 칸에도 넣음 (가려져 있으면 국민신문고에서 직접 조회)</td></tr>
     <tr><td class="auto">민원구분</td><td>「고충민원」 (제2조 제몇 호는 직접)</td></tr>
     <tr><td class="auto">담당자 성명 · 민원신청 경로</td><td>담당자 · 민원신청경로(2단계, 없으면 1단계)</td></tr>
     <tr><td class="auto">민원제목 · 민원요지</td><td>민원제목 · 민원요지 (요지는 줄여 쓰세요)</td></tr>
@@ -389,6 +389,22 @@ var CL = (function () {
     return head || p;
   }
   function blind(v) { return /\*{2,}|○○|ＯＯ/.test(String(v || '')); }
+  // 휴대폰 번호(010 등)면 010-0000-0000 꼴로. 숫자로 저장돼 앞의 0이 빠진 것도 살림. 그 밖의 번호는 그대로
+  function mobileOf(v) {
+    var raw = String(v == null ? '' : v).trim();
+    if (!raw || blind(raw) || /[^\d\s().+-]/.test(raw)) return '';
+    var d = raw.replace(/\D/g, '');
+    if (/^82(1[016789])/.test(d)) d = '0' + d.slice(2);
+    if (/^1[016789]\d{7,8}$/.test(d)) d = '0' + d;
+    var m = /^(01[016789])(\d{3,4})(\d{4})$/.exec(d);
+    return m ? m[1] + '-' + m[2] + '-' + m[3] : '';
+  }
+  function phones(row) {
+    var mob = mobileOf(row.mobile), tel = mobileOf(row.tel);
+    var m0 = String(row.mobile == null ? '' : row.mobile).trim(), t0 = String(row.tel == null ? '' : row.tel).trim();
+    var useTel = !!tel && (!m0 || blind(m0));    // 휴대폰 칸이 비었거나 가려졌는데 전화번호가 휴대폰 번호면 그걸로 채움
+    return { mobile: useTel ? tel : (mob || m0), tel: tel || t0, fromTel: useTel };
+  }
   function toFormRow(row, c, seq, orgOverride) {
     var s = function (v) { v = v instanceof Date ? ymd(v) : String(v == null ? '' : v).trim(); return v ? { t: 's', v: v } : null; };
     var dt = function (d) { return d ? { t: 'd', v: d } : null; };
@@ -400,8 +416,9 @@ var CL = (function () {
     cells[3] = s(row.no || row.recvNo);                              // D 민원 신청번호
     cells[4] = dt(c.recv);                                           // E 접수일자
     cells[5] = s(row.name);                                          // F 성함
-    cells[6] = s(row.mobile);                                        // G 휴대폰
-    cells[7] = s(row.tel);                                           // H 유선번호
+    var ph = phones(row);
+    cells[6] = s(ph.mobile);                                         // G 휴대폰 (비었으면 010으로 시작하는 전화번호)
+    cells[7] = s(ph.tel);                                            // H 유선번호 (010이면 010-0000-0000 꼴로)
     cells[9] = s(row.work3 || row.work2 || row.work1);               // J 업무분야 (상세 처리대장: 가장 자세한 분류)
     cells[10] = s('고충민원');                                         // K 민원구분 (L 제2조 호는 직접)
     cells[12] = s(row.staff);                                        // M 담당자 성명
@@ -417,10 +434,10 @@ var CL = (function () {
     return cells;
   }
   function addCount(row) { return +String(row.addCnt || '').replace(/[^\d]/g, '') || 0; }
-  function needsLookup(row) { return !String(row.name || '').trim() || !String(row.mobile || '').trim() || blind(row.name) || blind(row.mobile); }
+  function needsLookup(row) { var m = phones(row).mobile; return !String(row.name || '').trim() || !m || blind(row.name) || blind(m); }
 
   return { readLedger: readLedger, parsePeriod: parsePeriod, classify: classify, dedupe: dedupe, toFormRow: toFormRow,
-           needsLookup: needsLookup, addCount: addCount, toDate: toDate, ymd: ymd, serial: serial };
+           needsLookup: needsLookup, addCount: addCount, phones: phones, mobileOf: mobileOf, toDate: toDate, ymd: ymd, serial: serial };
 })();
 if (typeof module !== 'undefined') module.exports = CL;
 </script>
@@ -791,7 +808,7 @@ var BUILTIN_TPL = 'UEsDBBQAAAAIAAAAIQAOmliidwEAAOQFAAATAAAAW0NvbnRlbnRfVHlwZXNdL
   var LINKS = [  // [필드, 점검대장 칸 번호, 종류 copy|tf|alt, 설명]
     ['dept', 1, 'tf', '교육지원청·직속기관 이름, 없으면 본청'], ['dept', 2, 'tf', '마지막 단계'],
     ['no', 3, 'copy'], ['recvNo', 3, 'alt', '신청번호가 비었을 때'], ['recvAt', 4, 'tf', '날짜만'], ['applyAt', 4, 'alt', '접수일시가 비었을 때'],
-    ['name', 5, 'copy'], ['mobile', 6, 'copy'], ['tel', 7, 'copy'], ['staff', 12, 'copy'],
+    ['name', 5, 'copy'], ['mobile', 6, 'tf', '010-0000-0000 꼴로'], ['tel', 6, 'alt', '휴대전화번호가 비고 전화번호가 010…일 때'], ['tel', 7, 'tf', '010…이면 하이픈 넣음'], ['staff', 12, 'copy'],
     ['route2', 14, 'copy'], ['route1', 14, 'alt', '2단계가 비었을 때'], ['title', 15, 'copy'], ['summary', 16, 'copy'],
     ['doneAt', 18, 'tf', '날짜만'], ['days', 19, 'copy'], ['kind', 21, 'copy'], ['proc2', 22, 'tf', '괄호 앞만: 해결(수용) → 해결'],
     ['sat', 23, 'copy'], ['work', 9, 'tf', '가장 자세한 분류 (상세 처리대장)']
