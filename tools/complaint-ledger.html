@@ -127,7 +127,7 @@ footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--rule);color:v
 
   <section class="card todo" id="step2">
     <h2><span class="n">2</span>민원처리대장 넣기</h2>
-    <p class="lead">국민신문고에서 내려받은 민원처리대장(엑셀)을 넣으세요. 여러 개를 한꺼번에 넣어도 되고, 같은 민원은 한 번만 들어갑니다.</p>
+    <p class="lead">국민신문고에서 내려받은 민원처리대장(엑셀)을 넣으세요. <b>상세</b> 처리대장이면 업무분야까지 채웁니다. 여러 개를 한꺼번에 넣어도 되고, 같은 민원은 한 번만 들어갑니다.</p>
     <div class="zone" id="drop" tabindex="0" role="button" aria-label="민원처리대장 선택">
       <strong>민원처리대장을 여기에 놓으세요</strong>
       <small>여러 개 한 번에 가능</small>
@@ -184,7 +184,8 @@ footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--rule);color:v
     <tr><td class="auto">민원 처리일 · 처리기간</td><td>처리일자(날짜만) · 처리기간</td></tr>
     <tr><td class="auto">민원종류 · 처리구분 · 최종만족도</td><td>민원종류 · 처리유형 2단계(괄호 앞) · 최종만족도</td></tr>
     <tr><td class="auto">추가답변</td><td>추가답변횟수가 있으면 「추가답변 N회」</td></tr>
-    <tr><td class="man">유형 · 업무분야 · 제2조 호 · 사무실 번호 · 답변요지 · 관련규정 · 2차 민원 · 조치내역 · 기타 의견</td><td>처리대장에 없어 비워 둡니다 (유형은 서식의 목록에서 고르기)</td></tr>
+    <tr><td class="auto">업무분야</td><td>민원처리대장 <b>상세</b>를 넣으면 업무분야 소분류(없으면 중분류·대분류). 기본 처리대장에는 없어 비워 둠</td></tr>
+    <tr><td class="man">유형 · 제2조 호 · 사무실 번호 · 답변요지 · 관련규정 · 2차 민원 · 조치내역 · 기타 의견</td><td>처리대장에 없어 비워 둡니다 (유형은 서식의 목록에서 고르기)</td></tr>
   </table>
   </details>
 </section>
@@ -284,7 +285,8 @@ var CL = (function () {
     name: ['신청정보>이름', '이름', '신청인'], tel: ['신청정보>전화번호', '전화번호'], mobile: ['신청정보>휴대전화번호', '휴대전화번호', '휴대전화'],
     route1: ['민원신청경로>1단계'], route2: ['민원신청경로>2단계'], route: ['민원신청경로'],
     type: ['민원유형'], title: ['민원제목', '제목'], summary: ['민원요지'], cls: ['분류유형'],
-    doneAt: ['처리일자', '처리일시'], days: ['처리기간'], staff: ['담당자'],
+    doneAt: ['처리일자', '처리일시'], days: ['처리기간'], staff: ['담당자', '처리담당자'],
+    work1: ['업무분야>대분류'], work2: ['업무분야>중분류'], work3: ['업무분야>소분류'],   // 민원처리대장 상세에만 있음
     d1: ['담당부서>1차분류'], d2: ['담당부서>2차분류'], d3: ['담당부서>3차분류'], d4: ['담당부서>4차분류'], d5: ['담당부서>5차분류'], dept: ['담당부서', '처리기관', '처리부서'],
     kind: ['민원종류'], proc1: ['처리유형>1단계'], proc2: ['처리유형>2단계'], proc: ['처리유형'],
     sat: ['최종만족도'], addCnt: ['추가답변횟수']
@@ -401,6 +403,7 @@ var CL = (function () {
     cells[5] = s(row.name);                                          // F 성함
     cells[6] = s(row.mobile);                                        // G 휴대폰
     cells[7] = s(row.tel);                                           // H 유선번호
+    cells[9] = s(row.work3 || row.work2 || row.work1);               // J 업무분야 (상세 처리대장: 가장 자세한 분류)
     cells[10] = s('고충민원');                                         // K 민원구분 (L 제2조 호는 직접)
     cells[12] = s(row.staff);                                        // M 담당자 성명
     cells[14] = s(row.route2 || row.route1 || row.route);            // O 민원신청 경로
@@ -674,9 +677,9 @@ if (typeof module !== 'undefined') module.exports = FILL;
     ['name', 'E', '신청정보 › 이름'], ['tel', 'G', '신청정보 › 전화번호'], ['mobile', 'H', '신청정보 › 휴대전화번호'],
     ['route1', 'K', '민원신청경로 › 1단계'], ['route2', 'L', '민원신청경로 › 2단계'], ['type', 'R', '민원유형', '취하 판단'],
     ['title', 'Z', '민원제목'], ['summary', 'AA', '민원요지'], ['cls', 'AB', '분류유형', '고충민원 판단'],
-    ['doneAt', 'AJ', '처리일자'], ['days', 'AK', '처리기간'], ['dept', 'AL~AP', '담당부서 › 1~5차 분류'], ['staff', 'AQ', '담당자'],
+    ['doneAt', 'AJ', '처리일자'], ['days', 'AK', '처리기간'], ['dept', 'AL~AP', '담당부서 › 1~5차 분류'], ['staff', 'AQ', '담당자 · 처리담당자'],
     ['kind', 'AS', '민원종류', '고충민원 판단'], ['proc1', 'AT', '처리유형 › 1단계', '취하 판단'], ['proc2', 'AU', '처리유형 › 2단계', '취하 판단'],
-    ['sat', 'AW', '최종만족도'], ['addCnt', 'AY', '추가답변횟수']
+    ['sat', 'AW', '최종만족도'], ['addCnt', 'AY', '추가답변횟수'], ['work', null, '업무분야 › 대·중·소분류', '', true]
   ];
   var RIGHT = ['순', '기관구분', '부서명', '민원 신청번호', '접수일자', '성함', '휴대폰 번호', '유선번호', '유형', '업무분야', '민원구분', '민원구분(제2조 호)',
     '담당자 성명', '사무실 번호', '민원신청 경로', '민원제목', '민원요지', '답변요지', '민원 처리일', '민원처리 기간', '관련규정', '민원종류', '처리구분',
@@ -688,12 +691,16 @@ if (typeof module !== 'undefined') module.exports = FILL;
     ['name', 5, 'copy'], ['mobile', 6, 'copy'], ['tel', 7, 'copy'], ['staff', 12, 'copy'],
     ['route2', 14, 'copy'], ['route1', 14, 'alt', '2단계가 비었을 때'], ['title', 15, 'copy'], ['summary', 16, 'copy'],
     ['doneAt', 18, 'tf', '날짜만'], ['days', 19, 'copy'], ['kind', 21, 'copy'], ['proc2', 22, 'tf', '괄호 앞만: 해결(수용) → 해결'],
-    ['sat', 23, 'copy'], ['addCnt', 24, 'tf', '1 이상이면 「추가답변 N회」']
+    ['sat', 23, 'copy'], ['addCnt', 24, 'tf', '1 이상이면 「추가답변 N회」'], ['work', 9, 'tf', '가장 자세한 분류 (상세 처리대장)']
   ];
   function drawMap(src) {
     var col = src ? src.col || {} : null;
     var letter = function (f, def) {
-      if (!col) return def;
+      if (!col) return def === null ? '상세' : def;
+      if (f === 'work') {
+        var ws2 = ['work1', 'work2', 'work3'].filter(function (k) { return col[k] != null; }).map(function (k) { return col[k]; });
+        return ws2.length ? XLSX.utils.encode_col(Math.min.apply(null, ws2)) + (ws2.length > 1 ? '~' + XLSX.utils.encode_col(Math.max.apply(null, ws2)) : '') : null;
+      }
       if (f === 'dept') {
         var ds = ['d1', 'd2', 'd3', 'd4', 'd5'].filter(function (k) { return col[k] != null; }).map(function (k) { return col[k]; });
         if (ds.length) { var a = XLSX.utils.encode_col(Math.min.apply(null, ds)), b = XLSX.utils.encode_col(Math.max.apply(null, ds)); return a === b ? a : a + '~' + b; }
@@ -714,14 +721,16 @@ if (typeof module !== 'undefined') module.exports = FILL;
     out += '<text x="' + LX + '" y="9" font-size="11.5" fill="#5F6B73" font-weight="700">민원처리대장</text>';
     out += '<text x="' + RX + '" y="9" font-size="11.5" fill="#5F6B73" font-weight="700">고충민원 점검대장</text>';
     LEFT.forEach(function (it, i) {
-      var y = top + i * LH + (LH - 22) / 2, L = letter(it[0], it[1]), miss = L == null, used = LINKS.some(function (l) { return l[0] === it[0]; });
+      var y = top + i * LH + (LH - 22) / 2, L = letter(it[0], it[1]), opt = !!it[4], miss = L == null && !opt, used = LINKS.some(function (l) { return l[0] === it[0]; });
+      if (L == null && opt) L = '–';
       ly[it[0]] = y + 11;
-      var fill = miss ? '#FDEDED' : used ? '#fff' : '#f3f2ee', stroke = miss ? '#E8B4B4' : '#D7D3CB';
+      var absent = opt && L === '–';
+      var fill = miss ? '#FDEDED' : absent ? '#f3f2ee' : used ? '#fff' : '#f3f2ee', stroke = miss ? '#E8B4B4' : '#D7D3CB';
       out += '<g class="bx" data-f="' + it[0] + '"><title>' + esc(it[2] + (it[3] ? ' (' + it[3] + ')' : '') + (miss ? ' — 이 파일에서 찾지 못함' : '')) + '</title>' +
         '<rect x="' + LX + '" y="' + y + '" width="' + LW + '" height="22" rx="5" fill="' + fill + '" stroke="' + stroke + '"/>' +
         '<text x="' + (LX + 8) + '" y="' + (y + 15) + '" font-size="12" font-weight="700" fill="' + (miss ? '#B23A3A' : '#2F5D8F') + '">' + esc(miss ? '없음' : L) + '</text>' +
         '<text x="' + (LX + 58) + '" y="' + (y + 15) + '" font-size="12" fill="#2B3137">' + esc(it[2]) + '</text>' +
-        (it[3] ? '<text x="' + (LX + LW - 8) + '" y="' + (y + 15) + '" font-size="10.5" fill="#8A5A00" text-anchor="end">' + esc(it[3]) + '</text>' : '') + '</g>';
+        (it[3] || opt ? '<text x="' + (LX + LW - 8) + '" y="' + (y + 15) + '" font-size="10.5" fill="' + (opt ? '#5F6B73' : '#8A5A00') + '" text-anchor="end">' + esc(opt ? (absent ? '상세 처리대장에만 있음' : '상세 처리대장') : it[3]) + '</text>' : '') + '</g>';
     });
     // 오른쪽: 점검대장 A~AB
     RIGHT.forEach(function (nm, c) {
@@ -739,10 +748,10 @@ if (typeof module !== 'undefined') module.exports = FILL;
     var lines = '';
     LINKS.forEach(function (l) {
       var y1 = ly[l[0]], y2 = ry[l[1]], x1 = LX + LW, x2 = RX, mx = (x1 + x2) / 2;
-      var miss = letter(l[0], 'x') == null;
-      var color = miss ? '#E8B4B4' : l[2] === 'copy' ? '#1C7A50' : l[2] === 'tf' ? '#3A6EA5' : '#9AA6AE';
+      var lt = letter(l[0], 'x'), opt2 = l[0] === 'work', miss = lt == null && !opt2, absent2 = lt == null && opt2;
+      var color = miss ? '#E8B4B4' : absent2 ? '#C9CED2' : l[2] === 'copy' ? '#1C7A50' : l[2] === 'tf' ? '#3A6EA5' : '#9AA6AE';
       lines += '<path class="lk" data-f="' + l[0] + '" data-t="' + l[1] + '" d="M' + x1 + ',' + y1 + ' C' + mx + ',' + y1 + ' ' + mx + ',' + y2 + ' ' + x2 + ',' + y2 + '" stroke="' + color + '"' +
-        (l[2] === 'alt' || miss ? ' stroke-dasharray="5 4"' : '') + '><title>' + esc((l[3] || '그대로')) + '</title></path>';
+        (l[2] === 'alt' || miss || absent2 ? ' stroke-dasharray="5 4"' : '') + '><title>' + esc((l[3] || '그대로')) + '</title></path>';
     });
     var svg = $('mapSvg');
     svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
