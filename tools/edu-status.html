@@ -197,7 +197,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
   <div class="fcols">
     <div>
       <b>이미 적힌 줄은요</b>
-      <span>서식에 이미 이름이 적힌 줄은 그대로 두고, 그 사람의 이수증을 넣으면 그 줄의 교육 칸만 새로 채웁니다. 명단에 있는데 시트에 없는 사람은 아래에 줄을 늘려 이어 적습니다.</span>
+      <span>작성 중인 파일을 넣어도 됩니다. 이미 적힌 줄은 숫자·날짜 서식까지 그대로 두고, 그 사람의 이수증을 넣었을 때만 그 줄의 교육 칸을 새로 채웁니다. 명단에 있는데 시트에 없는 사람은 이름이 빈 줄(순번만 있는 줄)부터 채우고, 모자라면 아래로 줄을 늘립니다.</span>
     </div>
     <div>
       <b>읽지 못하는 이수증</b>
@@ -515,10 +515,11 @@ var EDU = (function () {
       for (var rr = s; rr <= ref.e.r; rr++) {
         for (var cc = 0; cc <= last; cc++) { var y = cellV(ws, rr, cc); if (y != null && String(y).trim() !== '') { e = rr; break; } }
       }
-      var existing = [];
+      var existing = [], blanks = [], lastSeq = 0;
       for (var r3 = s; r3 <= e; r3++) {
-        var nm = cellV(ws, r3, cols.name);
-        if (nm == null || String(nm).trim() === '') continue;
+        var nm = cellV(ws, r3, cols.name), sq = cols.seq != null ? cellV(ws, r3, cols.seq) : null;
+        if (sq != null && isFinite(+sq) && String(sq).trim() !== '') lastSeq = Math.max(lastSeq, +sq);
+        if (nm == null || String(nm).trim() === '') { blanks.push({ r: r3 + 1, seq: sq != null && String(sq).trim() !== '' }); continue; }
         var row = { r: r3 + 1, vals: {} };
         Object.keys(cols).forEach(function (k) { var x = cellV(ws, r3, cols[k]); row.vals[k] = x == null ? '' : (x instanceof Date ? ymd(x.getFullYear(), x.getMonth() + 1, x.getDate()) : String(x).trim()); });
         existing.push(row);
@@ -528,7 +529,7 @@ var EDU = (function () {
       for (var r4 = 0; r4 <= Math.min(ref.e.r, 20); r4++) {
         for (var c4 = last + 1; c4 <= Math.min(ref.e.c, last + 8); c4++) { var o = cellV(ws, r4, c4); if (o && /원$|청$|진흥원|나라배움터/.test(String(o).trim())) orgs.push(String(o).trim()); }
       }
-      out.push({ name: sn, idx: idx, key: ks[0] || null, title: title, header: hr + 1, s: s + 1, e: e + 1, cols: cols, existing: existing, orgs: orgs });
+      out.push({ name: sn, idx: idx, key: ks[0] || null, title: title, header: hr + 1, s: s + 1, e: e + 1, cols: cols, existing: existing, blanks: blanks, lastSeq: lastSeq, orgs: orgs });
     });
     return out;
   }
@@ -626,9 +627,9 @@ var XW = (function () {
       var cx = Object.keys(cols).map(Number).sort(function (a, b) { return a - b; }).map(function (c) {
         var ref = colName(c) + r, ct = cells[c] || tplCells[c];
         var st = ct ? attr(ct.head, 's') : null;
-        if (owned.indexOf(c) >= 0) return cellXml(ref, st, vals[c]);
-        if (!byRow[r]) return cellXml(ref, st, null);                    // 새 줄: 서식만
-        return ct.xml.replace(/(<c\b[^>]*?\br=")[A-Z]+\d+"/, '$1' + ref + '"');
+        if (owned.indexOf(c) >= 0 && vals[c] !== undefined) return cellXml(ref, st, vals[c]);
+        if (!byRow[r] || !cells[c]) return cellXml(ref, st, null);        // 새 줄: 서식만
+        return cells[c].xml.replace(/(<c\b[^>]*?\br=")[A-Z]+\d+"/, '$1' + ref + '"');
       }).join('');
       var head = rt ? rt.head.replace(/\s(r|spans)="[^"]*"/g, '').replace(/\/>$/, '>') : '<row>';
       out.push({ r: r, xml: head.replace(/^<row/, '<row r="' + r + '"') + cx + '</row>' });
@@ -844,7 +845,7 @@ if (typeof module !== 'undefined') module.exports = XW;
         if (cand.length > 1) cand = cand.filter(function (p) { return !p.dept || !ex.vals.dept || norm(p.dept) === norm(ex.vals.dept); });
         var p = cand.length === 1 && !used[cand[0].id] ? cand[0] : null;
         if (p) { used[p.id] = 1; if (ex.vals.course || ex.vals.date || ex.vals.no) had[p.id + '|' + sh.key] = 1; }
-        rows.push({ p: p, ex: ex.vals });
+        rows.push({ p: p, ex: ex.vals, r: ex.r });
       });
       people.forEach(function (p) { if (!used[p.id]) rows.push({ p: p, ex: null }); });
       return { sh: sh, rows: rows };
@@ -853,14 +854,17 @@ if (typeof module !== 'undefined') module.exports = XW;
   }
   function dateKey(t) { var d = EDU.datesIn(t)[0]; return d ? d.y * 10000 + d.m * 100 + d.d : 0; }
   function hoursFor(k, ce) { return (hours[k] || '').trim() || (ce.keys.length === 1 ? ce.c.hours : ''); }
-  function rowVals(sh, row, i) {
-    var C = sh.cols, v = {}, p = row.p, ex = row.ex || {}, ce = p ? M.rec[p.id + '|' + sh.key] : null;
+  /* 한 줄에 쓸 값: 이미 적힌 줄은 바꾸는 칸만 (나머지 칸은 원래 셀 그대로), 새 줄은 사람 · 이수증 칸 */
+  function rowVals(sh, row, seq) {
+    var C = sh.cols, v = {}, p = row.p, ex = row.ex, ce = p ? M.rec[p.id + '|' + sh.key] : null;
     function put(k, val) { if (C[k] != null) v[C[k]] = val; }
-    Object.keys(C).forEach(function (k) { put(k, ex[k] || ''); });
-    put('seq', i + 1);
-    put('dept', (p && p.dept) || ex.dept || '');
-    put('rank', (p && p.rank) || ex.rank || '');
-    put('name', (p && p.name) || ex.name || '');
+    if (ex) {
+      if (p && !ex.dept && p.dept) put('dept', p.dept);
+      if (p && !ex.rank && p.rank) put('rank', p.rank);
+    } else {
+      if (seq != null) put('seq', seq);
+      put('dept', p.dept || ''); put('rank', p.rank || ''); put('name', p.name || '');
+    }
     if (ce) {
       var c = ce.c;
       put('course', c.course); put('period', c.periodText); put('method', ce.method); put('hours', hoursFor(sh.key, ce));
@@ -971,7 +975,16 @@ if (typeof module !== 'undefined') module.exports = XW;
     if (!tpl || !M) return;
     var jobs = M.jobs.map(function (j) {
       var owned = Object.keys(j.sh.cols).map(function (k) { return j.sh.cols[k]; });
-      return { sheet: j.sh.name, s: j.sh.s, e: j.sh.e, owned: owned, rows: j.rows.map(function (row, i) { return rowVals(j.sh, row, i); }) };
+      // 이미 적힌 줄은 제자리, 새 사람은 이름이 빈 줄(순번만 있는 줄)부터 채우고 모자라면 아래에 이어 씀
+      var sh = j.sh, arr = [], blanks = sh.blanks.slice(), seq = sh.lastSeq, extra = 0;
+      j.rows.forEach(function (row) {
+        if (row.ex) { arr[row.r - sh.s] = rowVals(sh, row); return; }
+        var b = blanks.shift();
+        if (b) arr[b.r - sh.s] = rowVals(sh, row, b.seq ? null : ++seq);
+        else { extra++; arr[sh.e - sh.s + extra] = rowVals(sh, row, ++seq); }
+      });
+      for (var i = 0; i < arr.length; i++) if (!arr[i]) arr[i] = {};
+      return { sheet: sh.name, s: sh.s, e: sh.e, owned: owned, rows: arr };
     });
     var btn = $('download'); btn.disabled = true; $('dlMsg').textContent = '서식에 채우는 중…';
     XW.build(tpl.buf.slice(0), jobs).then(function (blob) {
