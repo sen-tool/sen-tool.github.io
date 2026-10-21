@@ -769,6 +769,8 @@ if (typeof module !== 'undefined') module.exports = XW;
   }
   var hours = {};            // 교육별 이수시간
   var tab = 'grid', view = null;
+  var deptTouched = false, savedDept = '';     // 부서 고르기: 직접 골랐는지, 지난번에 고른 부서
+  try { savedDept = localStorage.getItem('edu-dept-v1') || ''; } catch (e) {}
   try { hours = JSON.parse(localStorage.getItem('edu-hours-v1') || '{}') || {}; } catch (e) { hours = {}; }
   function saveHours() { try { localStorage.setItem('edu-hours-v1', JSON.stringify(hours)); } catch (e) {} }
 
@@ -942,11 +944,24 @@ if (typeof module !== 'undefined') module.exports = XW;
     var dp = $('deptPick'), keep = dp.value;
     dp.innerHTML = '<option value="">서식에 적힌 사람 전체 (' + all.length + '명)</option>' + order.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === keep ? ' selected' : '') + '>' + esc(o[1]) + ' (' + cnt[o[0]] + '명)</option>'; }).join('');
     if (keep && !cnt[keep]) dp.value = '';
+    // 부서를 직접 고르지 않았으면: 이수증 소속에서 가장 많이 나온 부서, 없으면 지난번에 고른 부서
+    var autoWhy = '';
+    if (!deptTouched && !EDU.parseRoster($('roster').value).length && order.length > 1) {
+      var votes = {}, voters = 0;
+      certs.forEach(function (ce) {
+        if (ce.keys && !ce.keys.length) return;
+        var o = norm(ce.c.org), hit = order.filter(function (d) { return o.indexOf(d[0]) >= 0; });
+        if (hit.length) { voters++; hit.forEach(function (d) { votes[d[0]] = (votes[d[0]] || 0) + 1; }); }
+      });
+      var best = Object.keys(votes).sort(function (a, b) { return votes[b] - votes[a]; })[0];
+      if (best && votes[best] * 2 >= voters) { dp.value = best; autoWhy = '이수증 소속을 보고 골랐어요. 다르면 바꾸세요'; savedDept = best; try { localStorage.setItem('edu-dept-v1', best); } catch (e) {} }
+      else if (savedDept && cnt[savedDept]) { dp.value = savedDept; autoWhy = '지난번에 고른 부서예요'; }
+    }
     $('rosterOpts').classList.toggle('hidden', !all.length);
     var rc = EDU.parseRoster($('roster').value).length, fr = rc ? 0 : dp.value ? cnt[dp.value] : all.length;
     $('step2').classList.toggle('todo', !rc && !fr);
     $('rosterMsg').textContent = rc ? '명단 ' + rc + '명' + (dp.value ? ' (붙여 넣은 명단을 쓰므로 부서 고르기는 쓰지 않음)' : '') :
-      dp.value ? '서식에 적힌 「' + dp.options[dp.selectedIndex].text.replace(/ \(\d+명\)$/, '') + '」 ' + fr + '명을 명단으로 씁니다.' :
+      dp.value ? '서식에 적힌 「' + dp.options[dp.selectedIndex].text.replace(/ \(\d+명\)$/, '') + '」 ' + fr + '명을 명단으로 씁니다.' + (autoWhy ? ' (' + autoWhy + ')' : '') :
       fr ? '붙여 넣은 명단이 없어 서식에 적힌 이름 ' + fr + '명 전체를 명단으로 씁니다. 우리 부서만 하려면 위에 붙여 넣거나 부서를 고르세요.' : '이름만 한 줄에 하나씩 적어도 됩니다.';
     rc = rc || fr;
     $('step3').classList.toggle('todo', !certs.length);
@@ -1094,7 +1109,7 @@ if (typeof module !== 'undefined') module.exports = XW;
   });
   var rt = null;
   $('roster').addEventListener('input', function () { clearTimeout(rt); rt = setTimeout(refresh, 250); });
-  $('deptPick').addEventListener('change', refresh);
+  $('deptPick').addEventListener('change', function () { deptTouched = true; savedDept = this.value; try { localStorage.setItem('edu-dept-v1', savedDept); } catch (e) {} refresh(); });
   $('onlyRoster').addEventListener('change', refresh);
   $('download').addEventListener('click', save);
   function wireDrop(el, onFiles, pickFn) {
