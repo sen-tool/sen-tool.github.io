@@ -663,7 +663,7 @@ var XW = (function () {
     return function (c) { return w[c] || def; };
   }
   function textWidth(t) { var n = 0; String(t).split('').forEach(function (ch) { n += ch.charCodeAt(0) > 0x2E80 ? 1.85 : 1.05; }); return n; }
-  function fillSheet(xml, s, e, rows, owned, restyle, trim) {
+  function fillSheet(xml, s, e, rows, owned, restyle, trim, lists) {
     var widthOf = colWidths(xml);
     var n = rows.length, end = trim && n ? s + n - 1 : Math.max(e, s + n - 1), d = end - e;   // trim: 남는 자료 줄은 지움
     var sdOpen = xml.indexOf('<sheetData'), tagEnd = xml.indexOf('>', sdOpen), sdClose = xml.indexOf('</sheetData>');
@@ -757,6 +757,36 @@ var XW = (function () {
     xml = xml.replace(/<c\b([^>]*)>(<f\b[^>]*>)([^<]*)(<\/f>)(?:<v>[^<]*<\/v>|<v\s*\/>)?<\/c>/g, function (all, a, f1, body, f2) {
       return '<c' + a.replace(/\st="[^"]*"/, '') + '>' + f1 + (d ? grow(body, e, d) : body) + f2 + '</c>';
     });
+    // 목록 선택 칸을 자료 줄 전체에 다시 걸기: 교육방법은 「대면 / 사이버교육」(양식은 #REF!로 깨져 있었음), 교육기관은 양식의 목록 그대로
+    function relist(col, formula) {
+      var Lc = colName(col), dv = null;
+      xml = xml.replace(/<dataValidation\b([^>]*?)\bsqref="([^"]*)"([^>]*?)(\/>|>[\s\S]*?<\/dataValidation>)/g, function (all, a, sq, b, rest) {
+        var mine = false;
+        var keep = sq.split(' ').filter(function (t) {
+          var m = /^\$?([A-Z]+)\$?(\d+)(?::\$?([A-Z]+)\$?(\d+))?$/.exec(t);
+          var hit = m && m[1] === Lc && (m[3] || m[1]) === Lc && +(m[4] || m[2]) >= s;
+          if (hit) mine = true;
+          return !hit;
+        });
+        if (mine && !formula) { var f = /<formula1>([^<]*)<\/formula1>/.exec(rest); if (f && !/#REF!/.test(f[1])) formula = f[1]; }
+        return keep.length ? '<dataValidation' + a + 'sqref="' + keep.join(' ') + '"' + b + rest : '';
+      });
+      if (!formula) return;
+      dv = '<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" sqref="' + Lc + s + ':' + Lc + end + '"><formula1>' + formula + '</formula1></dataValidation>';
+      if (/<dataValidations\b/.test(xml)) xml = xml.replace(/(<dataValidations\b[^>]*>)([\s\S]*?)(<\/dataValidations>)/, function (all, o, body, c) { return o + body + dv + c; });
+      else {
+        var at = xml.search(/<(hyperlinks|printOptions|pageMargins|pageSetup|headerFooter|rowBreaks|colBreaks|customProperties|cellWatches|ignoredErrors|smartTags|drawing|legacyDrawing|legacyDrawingHF|picture|oleObjects|controls|webPublishItems|tableParts|extLst)\b|<\/worksheet>/);
+        xml = xml.slice(0, at) + '<dataValidations count="1">' + dv + '</dataValidations>' + xml.slice(at);
+      }
+    }
+    if (n && lists) {
+      if (lists.method != null) relist(lists.method, '"대면,사이버교육"');
+      if (lists.issuer != null) relist(lists.issuer, null);
+      xml = xml.replace(/<dataValidations\b([^>]*)>([\s\S]*?)<\/dataValidations>/, function (all, at, body) {
+        var c = (body.match(/<dataValidation\b/g) || []).length;
+        return c ? '<dataValidations' + at.replace(/\s*\bcount="\d+"/g, '') + ' count="' + c + '">' + body + '</dataValidations>' : '';
+      });
+    }
     return { xml: xml, e: e, d: d };
   }
 
@@ -771,12 +801,14 @@ var XW = (function () {
     var fa = xml.indexOf('<fonts'), fb = xml.indexOf('</fonts>'), fOpenEnd = fa >= 0 ? xml.indexOf('>', fa) + 1 : -1;
     var fonts = fa >= 0 && fb > fa ? sliceTags(xml.slice(fOpenEnd, fb), 'font').map(function (t) { return t.xml; }) : null;
     var nFonts0 = fonts ? fonts.length : 0, fcache = {};
-    function plainFont(fid) {                    // 굵게 뺀 글꼴 번호
+    function plainFont(fid) {                    // 굵게 빼고 맑은 고딕 11로 맞춘 글꼴 번호 (색·기울임은 그대로)
       if (!fonts || !fonts[fid]) return fid;
       if (fcache.hasOwnProperty(fid)) return fcache[fid];
       var f = fonts[fid];
-      if (!/<b\b(?![^>]*\bval="(0|false)")[^>]*\/>/.test(f)) return (fcache[fid] = fid);
-      var nf = f.replace(/<b\b[^>]*\/>/g, '');
+      var body = f.replace(/^<font\b[^>]*\/>$/, '').replace(/^<font\b[^>]*>|<\/font>$/g, '')
+        .replace(/<(b|sz|name|family|charset|scheme)\b[^>]*\/>/g, '');
+      var nf = '<font>' + body + '<sz val="11"/><name val="맑은 고딕"/><family val="3"/><charset val="129"/></font>';
+      if (nf === f) return (fcache[fid] = fid);
       var k = fonts.indexOf(nf);
       if (k < 0) { fonts.push(nf); k = fonts.length - 1; }
       return (fcache[fid] = k);
@@ -858,7 +890,7 @@ var XW = (function () {
           if (idx < 0) return;
           var path = 'xl/' + rels[attr(sheetTags[idx].head, 'r:id')].replace(/^\/?xl\//, '').replace(/^\//, '');
           return zip.file(path).async('string').then(function (xml) {
-            var res = fillSheet(xml, job.s, job.e, job.rows, job.owned, book ? book.wrap : null, job.trim);
+            var res = fillSheet(xml, job.s, job.e, job.rows, job.owned, book ? book.wrap : null, job.trim, job.lists);
             zip.file(path, res.xml);
             if (res.d) moved[idx] = res;
             if (res.d < 0) return dropNotes(path, res.e, res.d);
@@ -1289,7 +1321,7 @@ if (typeof module !== 'undefined') module.exports = XW;
           arr[i] = v;
         });
         // 남는 자료 줄(다른 과 사람·빈 줄)은 지워 표가 명단 끝에서 끝나게 함
-        return { sheet: sh.name, s: sh.s, e: sh.e, owned: owned, rows: arr, trim: arr.length > 0 };
+        return { sheet: sh.name, s: sh.s, e: sh.e, owned: owned, rows: arr, trim: arr.length > 0, lists: { method: sh.cols.method, issuer: sh.cols.issuer } };
       }
       j.rows.forEach(function (row) {
         if (row.ex) { arr[row.r - sh.s] = rowVals(sh, row); return; }
@@ -1298,7 +1330,7 @@ if (typeof module !== 'undefined') module.exports = XW;
         else { extra++; arr[sh.e - sh.s + extra] = rowVals(sh, row, ++seq); }
       });
       for (var i = 0; i < arr.length; i++) if (!arr[i]) arr[i] = {};
-      return { sheet: sh.name, s: sh.s, e: sh.e, owned: owned, rows: arr };
+      return { sheet: sh.name, s: sh.s, e: sh.e, owned: owned, rows: arr, lists: { method: sh.cols.method, issuer: sh.cols.issuer } };
     });
     var btn = $('download'); btn.disabled = true; $('dlMsg').textContent = '서식에 채우는 중…';
     XW.build(tpl.buf.slice(0), jobs).then(function (blob) {
