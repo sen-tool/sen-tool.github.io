@@ -146,6 +146,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
   <section class="card todo" id="step1">
     <h2><span class="n">1</span>이수현황 서식 넣기</h2>
     <p class="lead">교육마다 시트가 있는 이수현황 엑셀을 넣으세요. 시트 이름(감염병, 청렴, 통일 …)으로 교육을 알아봅니다.</p>
+    <p class="howget"><b>부서원 명단은 서식 엑셀에 적어서 넣으세요.</b> 아무 시트(예: 1번 시트)에 부서명 · 직급 · 이름만 적어 저장하면, 그 명단으로 15개 시트를 모두 채웁니다. 작성 중인 파일도 그대로 넣으면 됩니다.</p>
     <div class="zone" id="dropTpl" tabindex="0" role="button" aria-label="이수현황 서식 선택">
       <strong>서식을 여기에 놓으세요</strong>
       <small>엑셀 파일 1개</small>
@@ -1000,7 +1001,7 @@ if (typeof module !== 'undefined') module.exports = XW;
   function compute() {
     var pasted = EDU.parseRoster($('roster').value), depts = chosenDepts();
     // 서식에 이름이 적혀 있으면 부서 고르기는 필수 (붙여 넣은 명단이 있으면 그 명단). 여러 부서를 고르면 서식 순서대로 합침
-    var needDept = !pasted.length && formRoster().length > 0 && !depts.length;
+    var needDept = !pasted.length && deptList().length > 0 && !depts.length;   // 서식에 부서가 적혀 있을 때만 고르기 필수
     var fr0 = formRoster();
     var base = pasted.length ? pasted : depts.length ? [].concat.apply([], depts.map(function (d) { return fr0.filter(function (p) { return norm(p.dept) === d; }); })) : needDept ? [] : fr0;   // 부서별로 묶고, 부서 안에서는 서식 순서
     var only = $('onlyRoster').checked && (pasted.length > 0 || depts.length > 0);
@@ -1109,6 +1110,7 @@ if (typeof module !== 'undefined') module.exports = XW;
     $('step1').classList.toggle('todo', !tpl);
     // 부서 체크 상자 (여러 개 고르기)
     var all = formRoster(), list = deptList();
+    if (list.length === 1 && !deptTouched) sel[list[0][0]] = true;     // 부서가 하나뿐이면 그 부서로 (고를 것이 없음)
     var dp = $('deptPick'), nameOf = function (k) { var o = list.filter(function (x) { return x[0] === k; })[0]; return o ? o[1] : k; };
     dp.innerHTML = list.map(function (d) { return '<label class="dept"><input type="checkbox" value="' + esc(d[0]) + '"' + (sel[d[0]] ? ' checked' : '') + '> ' + esc(d[1]) + ' <span class="why">' + d[2] + '명</span></label>'; }).join('') +
       (list.length > 1 ? '<span class="dbtn"><button type="button" class="plain" data-all="1">모두 고르기</button><button type="button" class="plain" data-all="0">모두 풀기</button></span>' : '');
@@ -1127,22 +1129,23 @@ if (typeof module !== 'undefined') module.exports = XW;
       if (best && votes[best] * 2 >= voters) hint = '이수증 소속으로 보면 「' + nameOf(best) + '」 같아요.';
       else if (prev.length) hint = '지난번에 고른 부서: ' + prev.map(function (k) { return '「' + nameOf(k) + '」'; }).join(', ');
     }
-    $('rosterOpts').classList.toggle('hidden', !all.length);
+    $('rosterOpts').classList.toggle('hidden', !list.length);
     // 서식에 이름이 있으면 「부서 고르기」, 없으면 「명단 붙여 넣기」를 앞에
     var noNames = !!tpl && !all.length;
-    $('step2Title').textContent = noNames ? '부서원 명단 붙여 넣기' : '부서 고르기';
-    $('step2Lead').innerHTML = noNames ? '서식에 이름이 적혀 있지 않아요. 아래에 부서원 명단을 붙여 넣으면 그 순서대로 모든 시트에 적습니다.' :
+    $('step2Title').textContent = noNames || (all.length && !list.length) ? '부서원 명단' : '부서 고르기';
+    $('step2Lead').innerHTML = noNames ? '서식에 이름이 적혀 있지 않아요. <b>서식 엑셀의 아무 시트에 부서명 · 직급 · 이름을 적어 저장한 뒤 1번에 다시 넣는 게 가장 편해요.</b> 아래에 붙여 넣어도 됩니다.' :
+      !list.length && all.length ? '서식에 적힌 이름 <b>' + all.length + '명</b>을 그대로 씁니다 (부서명 칸이 비어 있어 부서 고르기는 없음).' :
       '서식에 적힌 <b>부서 · 직급 · 이름</b>을 그대로 씁니다. 부서를 고르면(여러 개 가능) 그 부서 사람만 서식 순서대로 모든 시트에 적습니다.';
-    if (noNames && !pasteOpened) { $('pasteBox').open = true; pasteOpened = true; }
     var rc = EDU.parseRoster($('roster').value).length;
-    var fr = rc ? 0 : picked.reduce(function (n, k) { return n + list.filter(function (d) { return d[0] === k; })[0][2]; }, 0);
-    var need = !rc && all.length > 0 && !picked.length;
+    var fr = rc ? 0 : !list.length ? all.length : picked.reduce(function (n, k) { return n + list.filter(function (d) { return d[0] === k; })[0][2]; }, 0);
+    var need = !rc && list.length > 0 && !picked.length;
     dp.classList.toggle('need', need);
     $('step2').classList.toggle('todo', !rc && !fr);
     $('rosterMsg').textContent = !tpl && !rc ? '1번에 서식을 넣으면 서식에 적힌 부서가 나옵니다.' :
       rc ? '붙여 넣은 명단 ' + rc + '명을 씁니다' + (all.length ? ' (부서 고르기 대신)' : '') + '.' :
       picked.length ? picked.map(function (k) { return '「' + nameOf(k) + '」'; }).join(' + ') + ' ' + fr + '명을 ' + (picked.length > 1 ? '부서별로 묶어 ' : '') + '서식 순서대로 씁니다.' :
       need ? '⚠ 부서를 하나 이상 꼭 골라 주세요. ' + hint :
+      all.length ? '서식에 적힌 이름 ' + fr + '명을 서식 순서대로 씁니다.' :
       '명단이 없으면 이수증이 있는 사람만 적습니다.';
     $('rosterMsg').classList.toggle('needmsg', need);
     rc = rc || fr || (need ? 1 : 0);
