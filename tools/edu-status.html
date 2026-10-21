@@ -144,7 +144,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
 
   <section class="card todo" id="step2">
     <h2><span class="n">2</span>부서원 명단 붙여 넣기</h2>
-    <p class="lead">엑셀에서 <b>부서명 · 직급 · 이름</b> 세 칸을 끌어 복사(Ctrl+C)한 뒤 아래에 붙여 넣으세요(Ctrl+V). 이 순서대로 모든 시트에 적습니다.</p>
+    <p class="lead">엑셀에서 <b>부서명 · 직급 · 이름</b> 세 칸을 끌어 복사(Ctrl+C)한 뒤 아래에 붙여 넣으세요(Ctrl+V). 이 순서대로 모든 시트에 적습니다. <b>서식에 이미 이름을 적어 두었으면 비워 둬도 됩니다.</b></p>
     <textarea id="roster" rows="7" placeholder="행정지원과	교육행정7급	홍길동&#10;행정지원과	교육행정8급	김철수&#10;…" spellcheck="false"></textarea>
     <p class="hint" id="rosterMsg">이름만 한 줄에 하나씩 적어도 됩니다.</p>
   </section>
@@ -154,8 +154,8 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
     <p class="lead">교육·사람 상관없이 이수증 PDF를 <b>모두 한꺼번에</b> 넣으세요. 묶음 과정 이수증 하나는 들어 있는 교육 시트마다 채웁니다.</p>
     <div class="zone" id="drop" tabindex="0" role="button" aria-label="이수증 PDF 선택">
       <strong>이수증 PDF를 여기에 놓으세요</strong>
-      <small>여러 개 한 번에 · 여러 쪽짜리 PDF도 됨</small>
-      <div class="row"><button type="button" id="pickFiles">파일 선택</button><button type="button" class="plain" id="clearFiles">비우기</button></div>
+      <small>여러 개 한 번에 · 폴더째 끌어 놓아도 됨 (안의 폴더까지)</small>
+      <div class="row"><button type="button" id="pickFiles">파일 선택</button><button type="button" id="pickDir">폴더 선택</button><button type="button" class="plain" id="clearFiles">비우기</button></div>
     </div>
     <div class="loaded hidden" id="srcLoaded">
       <span class="tick">✓</span>
@@ -192,6 +192,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
 
 <input type="file" id="tplInput" accept=".xlsx,.xlsm" class="hidden">
 <input type="file" id="fileInput" multiple accept=".pdf,application/pdf" class="hidden">
+<input type="file" id="dirInput" webkitdirectory multiple class="hidden">
 
 <footer>
   <div class="fcols">
@@ -519,6 +520,7 @@ var EDU = (function () {
       for (var r3 = s; r3 <= e; r3++) {
         var nm = cellV(ws, r3, cols.name), sq = cols.seq != null ? cellV(ws, r3, cols.seq) : null;
         if (sq != null && isFinite(+sq) && String(sq).trim() !== '') lastSeq = Math.max(lastSeq, +sq);
+        if (/^\s*(예시|예\))/.test(String(nm == null ? '' : nm)) || /^\s*예시/.test(String(sq == null ? '' : sq))) continue;   // 서식의 예시 줄
         if (nm == null || String(nm).trim() === '') { blanks.push({ r: r3 + 1, seq: sq != null && String(sq).trim() !== '' }); continue; }
         var row = { r: r3 + 1, vals: {} };
         Object.keys(cols).forEach(function (k) { var x = cellV(ws, r3, cols[k]); row.vals[k] = x == null ? '' : (x instanceof Date ? ymd(x.getFullYear(), x.getMonth() + 1, x.getDate()) : String(x).trim()); });
@@ -784,8 +786,8 @@ if (typeof module !== 'undefined') module.exports = XW;
   var nextId = 1;
   function addFiles(list) {
     var todo = Array.prototype.filter.call(list, function (f) { return /\.pdf$/i.test(f.name) && !seen[f.name + '|' + f.size]; });
-    var skipped = Array.prototype.filter.call(list, function (f) { return !/\.pdf$/i.test(f.name); });
-    skipped.forEach(function (f) { bad.push(f.name + ' — PDF가 아님'); });
+    var skipped = Array.prototype.filter.call(list, function (f) { return !/\.pdf$/i.test(f.name) && !/^(\.|~\$|Thumbs\.db$|desktop\.ini$)/i.test(f.name); });
+    if (skipped.length) bad.push('PDF가 아닌 파일 ' + skipped.length + '개는 건너뜀: ' + skipped.slice(0, 5).map(function (f) { return f.name; }).join(', ') + (skipped.length > 5 ? ' 외' : ''));
     $('srcName').textContent = '읽는 중… (' + todo.length + '개)'; $('srcLoaded').classList.remove('hidden');
     var chain = Promise.resolve();
     todo.forEach(function (f) {
@@ -807,10 +809,26 @@ if (typeof module !== 'undefined') module.exports = XW;
   }
   function clearFiles() { certs = []; bad = []; seen = {}; pick = {}; refresh(); }
 
+  /* 명단을 붙여 넣지 않았으면 서식 시트에 적힌 이름들(처음 나온 순서)을 명단으로 */
+  function formRoster() {
+    var out = [], at = {};
+    (tpl ? tpl.sheets : []).forEach(function (sh) {
+      if (!sh.key) return;
+      sh.existing.forEach(function (ex) {
+        var k = norm(ex.vals.name);
+        if (!k) return;
+        if (at.hasOwnProperty(k)) { var o = out[at[k]]; if (!o.dept) o.dept = ex.vals.dept || ''; if (!o.rank) o.rank = ex.vals.rank || ''; return; }
+        at[k] = out.length; out.push({ dept: ex.vals.dept || '', rank: ex.vals.rank || '', name: String(ex.vals.name).trim() });
+      });
+    });
+    return out;
+  }
+
   /* ---------- 맞추기 ---------- */
   var M = null;
   function compute() {
-    var roster = EDU.parseRoster($('roster').value).map(function (p, i) { return { id: 'r' + i, dept: p.dept, rank: p.rank, name: p.name }; });
+    var pasted = EDU.parseRoster($('roster').value);
+    var roster = (pasted.length ? pasted : formRoster()).map(function (p, i) { return { id: 'r' + i, dept: p.dept, rank: p.rank, name: p.name }; });
     var people = roster.slice(), extras = [];
     var rec = {}, dups = [], noSheet = [], amb = [], noName = [];
     certs.forEach(function (ce) {
@@ -877,9 +895,10 @@ if (typeof module !== 'undefined') module.exports = XW;
   /* ---------- 화면 ---------- */
   function refresh() {
     $('step1').classList.toggle('todo', !tpl);
-    var rc = EDU.parseRoster($('roster').value).length;
-    $('step2').classList.toggle('todo', !rc);
-    $('rosterMsg').textContent = rc ? '명단 ' + rc + '명' : '이름만 한 줄에 하나씩 적어도 됩니다.';
+    var rc = EDU.parseRoster($('roster').value).length, fr = rc ? 0 : formRoster().length;
+    $('step2').classList.toggle('todo', !rc && !fr);
+    $('rosterMsg').textContent = rc ? '명단 ' + rc + '명' : fr ? '붙여 넣은 명단이 없어 서식에 적힌 이름 ' + fr + '명을 명단으로 씁니다.' : '이름만 한 줄에 하나씩 적어도 됩니다.';
+    rc = rc || fr;
     $('step3').classList.toggle('todo', !certs.length);
     $('srcLoaded').classList.toggle('hidden', !certs.length && !bad.length);
     var files = {}; certs.forEach(function (c) { files[c.file] = 1; });
@@ -898,7 +917,7 @@ if (typeof module !== 'undefined') module.exports = XW;
     var card = function (k, cls, num, label) { return '<button type="button" role="tab" data-tab="' + k + '" class="' + cls + '" aria-selected="' + (tab === k) + '"><b>' + num + '</b><span>' + label + '</span></button>'; };
     $('cards').innerHTML = card('grid', 'ok', n + '명', '한눈에 보기 (' + ks.length + '개 교육)') + card('miss', miss ? 'warn' : '', miss, '미이수 (사람×교육)') +
       card('certs', (M.noSheet.length || M.amb.length || M.noName.length) ? 'warn' : '', certs.length, '읽은 이수증') + card('hours', '', ks.filter(function (s) { return (hours[s.key] || '').trim(); }).length + '/' + ks.length, '이수시간 정하기');
-    $('sumMsg').innerHTML = '<b>' + n + '명</b> × 교육 <b>' + ks.length + '개</b>: 이수 ' + done + ' · 미이수 <b>' + miss + '</b>' + (M.roster.length ? '' : ' <b style="color:var(--warn)">(2번 명단이 없어 이수증이 있는 사람만 적습니다)</b>');
+    $('sumMsg').innerHTML = '<b>' + n + '명</b> × 교육 <b>' + ks.length + '개</b>: 이수 ' + done + ' · 미이수 <b>' + miss + '</b>' + (M.roster.length ? '' : ' <b style="color:var(--warn)">(명단이 없어 이수증이 있는 사람만 적습니다)</b>');
     $('download').disabled = !ks.length || !n;
     var info = [];
     if (M.extras.length) info.push('명단에 없는 이름 <b>' + M.extras.length + '명</b>: ' + M.extras.map(function (p) { return esc(p.name) + (p.rank ? '(' + esc(p.rank) + ')' : ''); }).join(', ') + ' — 이수증 내용으로 명단 아래에 이어 적습니다. 오타면 2번 명단을 고치세요.');
@@ -1019,7 +1038,25 @@ if (typeof module !== 'undefined') module.exports = XW;
     el.addEventListener('keydown', function (e) { if (e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pickFn(); } });
     ['dragenter', 'dragover'].forEach(function (t) { el.addEventListener(t, function (e) { e.preventDefault(); el.classList.add('over'); }); });
     ['dragleave', 'drop'].forEach(function (t) { el.addEventListener(t, function (e) { e.preventDefault(); el.classList.remove('over'); }); });
-    el.addEventListener('drop', function (e) { onFiles(e.dataTransfer.files); });
+    el.addEventListener('drop', function (e) {
+      // 폴더를 끌어 놓으면 안의 파일(하위 폴더까지)을 모음
+      var items = e.dataTransfer.items, entries = [];
+      if (items && items.length && items[0].webkitGetAsEntry) for (var i = 0; i < items.length; i++) { var en = items[i].webkitGetAsEntry(); if (en) entries.push(en); }
+      if (!entries.some(function (en) { return en.isDirectory; })) { onFiles(e.dataTransfer.files); return; }
+      walk(entries).then(onFiles);
+    });
+  }
+  function walk(entries) {
+    var files = [];
+    function one(en) {
+      if (en.isFile) return new Promise(function (ok) { en.file(function (f) { files.push(f); ok(); }, function () { ok(); }); });
+      if (!en.isDirectory) return Promise.resolve();
+      var rd = en.createReader(), all = [];
+      return new Promise(function (ok) {
+        (function more() { rd.readEntries(function (b) { if (!b.length) ok(all); else { all = all.concat(Array.prototype.slice.call(b)); more(); } }, function () { ok(all); }); })();
+      }).then(function (list) { return list.reduce(function (p, x) { return p.then(function () { return one(x); }); }, Promise.resolve()); });
+    }
+    return entries.reduce(function (p, x) { return p.then(function () { return one(x); }); }, Promise.resolve()).then(function () { return files; });
   }
   wireDrop($('step1'), function (fl) { setTpl(fl[0]); }, function () {});
   $('dropTpl').addEventListener('click', function (e) { if (e.target.tagName !== 'BUTTON') $('tplInput').click(); });
@@ -1027,6 +1064,8 @@ if (typeof module !== 'undefined') module.exports = XW;
   ['dragover', 'drop'].forEach(function (t) { window.addEventListener(t, function (e) { e.preventDefault(); }); });
   $('pickTpl').onclick = function () { $('tplInput').click(); };
   $('pickFiles').onclick = function () { $('fileInput').click(); };
+  $('pickDir').onclick = function () { $('dirInput').click(); };
+  $('dirInput').onchange = function () { addFiles(this.files); this.value = ''; };
   $('clearTpl').onclick = clearTpl;
   $('clearFiles').onclick = clearFiles;
   $('tplInput').onchange = function () { setTpl(this.files[0]); this.value = ''; };
