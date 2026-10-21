@@ -13,6 +13,7 @@
 | 관내출장여비 지급내역 만들기 | [tools/local-travel.html](tools/local-travel.html) | 대상목록 + 지난달 파일 → 일반여비·요약 + 근거자료 |
 | 공사대장 만들기 | [tools/contract-ledger.html](tools/contract-ledger.html) | 인증키·기관코드·기간 → 계약 21개 항목 엑셀 |
 | 고충민원 점검대장 만들기 | [tools/complaint-ledger.html](tools/complaint-ledger.html) | 국민신문고 민원처리대장 (점검대장 서식은 도구에 내장) → 서식 그대로 채운 분기 고충민원 점검대장 |
+| 법정교육 이수현황 만들기 | [tools/edu-status.html](tools/edu-status.html) | 이수현황 서식 + 부서원 명단 + 이수증 PDF → 교육별 시트에 부서원마다 채운 이수현황 |
 
 시험해 볼 자료: [samples/](samples/) 폴더 (모두 가짜 이름·가짜 학교로 만든 자료). 웹 주소에서는 도구 화면의 「쓰는 법 · 결과 예시」 → **예시 파일로 해 보기**를 누르면 바로 들어갑니다.
 
