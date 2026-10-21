@@ -104,6 +104,10 @@ textarea{font:inherit;font-size:13px;width:100%;flex:1;min-height:140px;border:1
 .ropts{display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:13px;color:var(--sub)}
 .ropts select.need{border:2px solid var(--err);background:var(--err-bg)}
 .hint.needmsg{color:var(--err);font-weight:700}
+details.paste{margin-top:10px}
+details.paste summary{cursor:pointer;color:var(--teal);font-size:13px}
+details.paste textarea{min-height:110px;margin-top:4px}
+.ropts select{font-size:14px !important;padding:6px 8px !important;width:100%}
 .ropts select{font:inherit;font-size:13px;padding:3px 6px;border:1px solid var(--rule);border-radius:6px;max-width:100%}
 table.grid th.v{writing-mode:vertical-rl;white-space:nowrap;font-size:12px;padding:8px 4px;text-align:left;vertical-align:bottom}
 table.grid td.g{text-align:center;padding:6px 4px;font-weight:700;min-width:26px;border-left:1px solid #EDF1F3}
@@ -147,14 +151,18 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
   </section>
 
   <section class="card todo" id="step2">
-    <h2><span class="n">2</span>부서원 명단 붙여 넣기</h2>
-    <p class="lead">엑셀에서 <b>부서명 · 직급 · 이름</b> 세 칸을 끌어 복사(Ctrl+C)한 뒤 아래에 붙여 넣으세요(Ctrl+V). 이 순서대로 모든 시트에 적습니다. <b>서식에 이름이 적혀 있으면 아래에서 부서를 꼭 고르세요.</b></p>
-    <textarea id="roster" rows="7" placeholder="행정지원과	교육행정7급	홍길동&#10;행정지원과	교육행정8급	김철수&#10;…" spellcheck="false"></textarea>
-    <p class="hint" id="rosterMsg">이름만 한 줄에 하나씩 적어도 됩니다.</p>
+    <h2><span class="n">2</span><span id="step2Title">부서 고르기</span></h2>
+    <p class="lead" id="step2Lead">서식에 적힌 <b>부서 · 직급 · 이름</b>을 그대로 씁니다. 우리 부서를 고르면 그 부서 사람만 서식 순서대로 모든 시트에 적습니다.</p>
     <div class="ropts hidden" id="rosterOpts">
-      <label>또는 서식에서 부서 고르기 <select id="deptPick"><option value="">서식에 적힌 사람 전체</option></select></label>
-      <label><input type="checkbox" id="onlyRoster" checked> 명단에 없는 사람 줄은 빼고 <b>명단만 남기기</b></label>
+      <label><select id="deptPick"><option value="">부서를 고르세요 (필수)</option></select></label>
+      <label><input type="checkbox" id="onlyRoster" checked> 다른 부서 사람 줄은 빼고 <b>우리 부서만 남기기</b></label>
     </div>
+    <p class="hint" id="rosterMsg">1번에 서식을 넣으면 서식에 적힌 부서가 나옵니다.</p>
+    <details class="paste" id="pasteBox">
+      <summary>명단 직접 붙여 넣기 (서식에 이름이 없을 때)</summary>
+      <p class="hint">엑셀에서 <b>부서명 · 직급 · 이름</b> 세 칸을 끌어 복사(Ctrl+C)한 뒤 붙여 넣으세요(Ctrl+V). 붙여 넣으면 부서 고르기 대신 이 명단을 이 순서대로 씁니다.</p>
+      <textarea id="roster" rows="6" placeholder="행정지원과	교육행정7급	홍길동&#10;행정지원과	교육행정8급	김철수&#10;…" spellcheck="false"></textarea>
+    </details>
   </section>
 
   <section class="card todo" id="step3">
@@ -566,7 +574,7 @@ var EDU = (function () {
     if (!cand.length) {          // 「홍길동(인)」「홍 길 동」「홍길동 주무관」처럼 붙은 글자가 있으면 한글 이름만 비교
       var clean = function (x) { return norm(x).replace(/[(（][^)）]*[)）]/g, '').replace(/[^가-힣]/g, '').replace(/(주무관|선생님|님)$/, ''); };
       var h = clean(cert.name);
-      cand = people.filter(function (p) { var q = clean(p.name); return q.length >= 2 && h === q; });
+      cand = people.filter(function (p) { var q = norm(p.name); return /^[가-힣]{2,}$/.test(q) && h === q; });   // 명단 이름이 한글 이름일 때만
     }
     if (cand.length === 1) return { st: 'ok', p: cand[0] };
     if (!cand.length) return { st: 'none' };
@@ -878,7 +886,7 @@ if (typeof module !== 'undefined') module.exports = XW;
   }
   var hours = {};            // 교육별 이수시간
   var tab = 'grid', view = null;
-  var deptTouched = false, savedDept = '';     // 부서 고르기: 직접 골랐는지, 지난번에 고른 부서
+  var deptTouched = false, savedDept = '', pasteOpened = false;     // 부서 고르기: 직접 골랐는지, 지난번에 고른 부서
   try { savedDept = localStorage.getItem('edu-dept-v1') || ''; } catch (e) {}
   try { hours = JSON.parse(localStorage.getItem('edu-hours-v1') || '{}') || {}; } catch (e) { hours = {}; }
   function saveHours() { try { localStorage.setItem('edu-hours-v1', JSON.stringify(hours)); } catch (e) {} }
@@ -1071,14 +1079,22 @@ if (typeof module !== 'undefined') module.exports = XW;
       else if (savedDept && cnt[savedDept]) hint = '지난번에 고른 부서: 「' + nameOf(savedDept) + '」';
     }
     $('rosterOpts').classList.toggle('hidden', !all.length);
+    // 서식에 이름이 있으면 「부서 고르기」, 없으면 「명단 붙여 넣기」를 앞에
+    var noNames = !!tpl && !all.length;
+    $('step2Title').textContent = noNames ? '부서원 명단 붙여 넣기' : '부서 고르기';
+    $('step2Lead').innerHTML = noNames ? '서식에 이름이 적혀 있지 않아요. 아래에 부서원 명단을 붙여 넣으면 그 순서대로 모든 시트에 적습니다.' :
+      '서식에 적힌 <b>부서 · 직급 · 이름</b>을 그대로 씁니다. 우리 부서를 고르면 그 부서 사람만 서식 순서대로 모든 시트에 적습니다.';
+    if (noNames && !pasteOpened) { $('pasteBox').open = true; pasteOpened = true; }
     var rc = EDU.parseRoster($('roster').value).length, fr = rc ? 0 : dp.value === '__all' ? all.length : dp.value ? cnt[dp.value] : 0;
     var need = !rc && all.length > 0 && !dp.value;
     dp.classList.toggle('need', need);
     $('step2').classList.toggle('todo', !rc && !fr);
-    $('rosterMsg').textContent = rc ? '명단 ' + rc + '명' + (dp.value ? ' (붙여 넣은 명단을 쓰므로 부서 고르기는 쓰지 않음)' : '') :
-      dp.value ? '서식에 적힌 「' + dp.options[dp.selectedIndex].text.replace(/ \(\d+명\)$/, '') + '」 ' + fr + '명을 명단으로 씁니다.' + (autoWhy ? ' (' + autoWhy + ')' : '') :
-      need ? '⚠ 아래에서 부서를 꼭 골라 주세요 (또는 명단을 붙여 넣기). ' + hint :
-      fr ? '서식에 적힌 이름 ' + fr + '명 전체를 명단으로 씁니다.' : '이름만 한 줄에 하나씩 적어도 됩니다.';
+    $('rosterMsg').textContent = !tpl && !rc ? '1번에 서식을 넣으면 서식에 적힌 부서가 나옵니다.' :
+      rc ? '붙여 넣은 명단 ' + rc + '명을 씁니다' + (all.length ? ' (부서 고르기 대신)' : '') + '.' :
+      dp.value === '__all' ? '서식에 적힌 사람 전체 ' + fr + '명을 씁니다.' :
+      dp.value ? '「' + dp.options[dp.selectedIndex].text.replace(/ \(\d+명\)$/, '') + '」 ' + fr + '명을 서식 순서대로 씁니다.' :
+      need ? '⚠ 부서를 꼭 골라 주세요. ' + hint :
+      '명단이 없으면 이수증이 있는 사람만 적습니다.';
     $('rosterMsg').classList.toggle('needmsg', need);
     rc = rc || fr || (need ? 1 : 0);
     $('step3').classList.toggle('todo', !certs.length);
@@ -1107,8 +1123,8 @@ if (typeof module !== 'undefined') module.exports = XW;
     $('sumMsg').innerHTML = '<b>' + n + '명</b> × 교육 <b>' + ks.length + '개</b>: 이수 ' + done + ' · 미이수 <b>' + miss + '</b>' + (M.roster.length ? '' : ' <b style="color:var(--warn)">(명단이 없어 이수증이 있는 사람만 적습니다)</b>');
     $('download').disabled = !ks.length || !n;
     var info = [];
-    if (M.outside.length) info.push('명단에 없는 사람의 이수증 <b>' + M.outside.length + '장</b>은 뺐습니다: ' + M.outside.slice(0, 6).map(function (ce) { return esc(ce.c.name); }).join(', ') + (M.outside.length > 6 ? ' 외' : '') + ' (명단만 남기기)');
-    if (M.only) info.push('명단만 남기기: 시트마다 명단 <b>' + M.roster.length + '명</b>만 명단 순서대로 적고, 명단에 없는 사람 줄은 비웁니다 (원래 파일은 그대로).');
+    if (M.outside.length) info.push('명단에 없는 사람의 이수증 <b>' + M.outside.length + '장</b>은 뺐습니다: ' + M.outside.slice(0, 6).map(function (ce) { return esc(ce.c.name); }).join(', ') + (M.outside.length > 6 ? ' 외' : '') + ' (우리 부서만 남기기)');
+    if (M.only) info.push('우리 부서만 남기기: 시트마다 <b>' + M.roster.length + '명</b>만 순서대로 적고, 다른 사람 줄은 지웁니다 (원래 파일은 그대로).');
     if (M.extras.length) info.push('명단에 없는 이름 <b>' + M.extras.length + '명</b>: ' + M.extras.map(function (p) { return esc(p.name) + (p.rank ? '(' + esc(p.rank) + ')' : ''); }).join(', ') + ' — 이수증 내용으로 명단 아래에 이어 적습니다. 오타면 2번 명단을 고치세요.');
     if (M.amb.length) info.push('명단에 같은 이름이 여럿이라 누구인지 모르는 이수증 <b>' + M.amb.length + '장</b>: ' + M.amb.map(function (ce) { return esc(ce.c.name); }).join(', ') + ' — 명단에 직급을 적으면 직급으로 가립니다.');
     if (M.noName.length) info.push('성명을 읽지 못한 이수증 <b>' + M.noName.length + '장</b>: ' + M.noName.map(function (ce) { return esc(ce.file); }).join(', '));
