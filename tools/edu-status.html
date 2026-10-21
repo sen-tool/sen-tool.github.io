@@ -1048,7 +1048,12 @@ if (typeof module !== 'undefined') module.exports = XW;
     M = { needDept: needDept, only: only, outside: outside, roster: roster, people: people, extras: extras, rec: rec, had: had, dups: dups, noSheet: noSheet, amb: amb, noName: noName, sheets: sheets, jobs: jobs };
   }
   function dateKey(t) { var d = EDU.datesIn(t)[0]; return d ? d.y * 10000 + d.m * 100 + d.d : 0; }
-  function hoursFor(k, ce) { return (hours[k] || '').trim() || (ce.keys.length === 1 ? ce.c.hours : ''); }
+  /* 서울특별시교육청교육연수원 「법정묶음C」 교육내용별 이수인정 시간 */
+  var BUNDLE_C = { infect: '1시간', anticor: '2시간2분', security: '1시간', welfare: '1시간', violence: '4시간', child: '1시간', disabAbuse: '1시간',
+    disabAware: '3시간30분', disclose: '28분', privacy: '57분', bully: '27분', suicide: '42분', active: '46분' };
+  function isBundle(ce) { return /법정\s*묶음/.test(ce.c.course); }
+  // 이수시간: 「이수시간 정하기」에 적은 값 > 법정묶음 기본값 > 교육 하나짜리 이수증에 적힌 시간
+  function hoursFor(k, ce) { return (hours[k] || '').trim() || (isBundle(ce) && BUNDLE_C[k]) || (ce.keys.length === 1 ? ce.c.hours : ''); }
   /* 한 줄에 쓸 값: 이미 적힌 줄은 바꾸는 칸만 (나머지 칸은 원래 셀 그대로), 새 줄은 사람 · 이수증 칸 */
   function rowVals(sh, row, seq) {
     var C = sh.cols, v = {}, p = row.p, ex = row.ex, ce = p ? M.rec[p.id + '|' + sh.key] : null;
@@ -1146,7 +1151,7 @@ if (typeof module !== 'undefined') module.exports = XW;
     var noOrg = certs.filter(function (ce) { return ce.keys && ce.keys.length && (!ce.issuer || !ce.method); });
     if (noOrg.length) info.push('교육기관이나 교육방법이 적혀 있지 않은 이수증 <b>' + noOrg.length + '장</b>: ' + noOrg.map(function (ce) { return esc(ce.c.name || ce.file); }).join(', ') + ' — 「읽은 이수증」에서 골라 주면 같은 모양의 이수증은 다음부터 알아서 씁니다.');
     if (M.dups.length) info.push('같은 사람·같은 교육 이수증이 둘 이상 <b>' + M.dups.length + '건</b> — 수료일이 늦은 것을 씁니다.');
-    var noH = ks.filter(function (s) { return !(hours[s.key] || '').trim() && certs.some(function (ce) { return ce.keys && ce.keys.length > 1 && ce.keys.indexOf(s.key) >= 0; }); });
+    var noH = ks.filter(function (s) { return !(hours[s.key] || '').trim() && certs.some(function (ce) { return ce.keys && ce.keys.length > 1 && ce.keys.indexOf(s.key) >= 0 && !(isBundle(ce) && BUNDLE_C[s.key]); }); });
     if (noH.length) info.push('묶음 과정 이수증이 들어간 교육 중 이수시간을 정하지 않은 교육 <b>' + noH.length + '개</b> — 「이수시간 정하기」에 적으면 그 시간으로 채웁니다 (비우면 빈칸).');
     $('needInfo').innerHTML = info.map(function (t) { return '<p class="note">' + t + '</p>'; }).join('');
     $('panel').innerHTML = tab === 'grid' ? gridHtml() : tab === 'miss' ? missHtml() : tab === 'certs' ? certsHtml() : hoursHtml();
@@ -1201,9 +1206,9 @@ if (typeof module !== 'undefined') module.exports = XW;
       }).join('') + '</tbody></table></div>';
   }
   function hoursHtml() {
-    return '<p class="lead" style="margin:0 0 8px">교육마다 정해진 이수시간을 적으세요 (예: <b>1시간</b>). 이 PC에 기억해 두고 다음에도 씁니다. 비워 두면 교육 하나짜리 이수증은 이수증에 적힌 시간을, 묶음 과정은 빈칸을 넣습니다.</p>' +
-      '<div class="tbl"><table class="list"><thead><tr><th>교육</th><th>시트</th><th>이수시간</th></tr></thead><tbody>' +
-      M.sheets.map(function (sh) { return '<tr><td><b>' + esc(short(sh)) + '</b></td><td class="why">' + esc(sh.name) + '</td><td><input type="text" data-hours="' + sh.key + '" value="' + esc(hours[sh.key] || '') + '" placeholder="예: 1시간" size="10"></td></tr>'; }).join('') +
+    return '<p class="lead" style="margin:0 0 8px">교육마다 정해진 이수시간을 적으세요 (예: <b>1시간</b>). 이 PC에 기억해 두고 다음에도 씁니다. 비워 두면 <b>법정묶음 과정</b>은 오른쪽 기본 시간을, 교육 하나짜리 이수증은 이수증에 적힌 시간을 넣습니다.</p>' +
+      '<div class="tbl"><table class="list"><thead><tr><th>교육</th><th>시트</th><th>이수시간 (직접)</th><th>법정묶음C 기본</th></tr></thead><tbody>' +
+      M.sheets.map(function (sh) { return '<tr><td><b>' + esc(short(sh)) + '</b></td><td class="why">' + esc(sh.name) + '</td><td><input type="text" data-hours="' + sh.key + '" value="' + esc(hours[sh.key] || '') + '" placeholder="' + esc(BUNDLE_C[sh.key] || '예: 1시간') + '" size="10"></td><td class="why">' + esc(BUNDLE_C[sh.key] || '—') + '</td></tr>'; }).join('') +
       '</tbody></table></div>';
   }
 
