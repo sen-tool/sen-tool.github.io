@@ -1080,9 +1080,10 @@ if (typeof module !== 'undefined') module.exports = XW;
       put('dept', p.dept || ''); put('rank', p.rank || ''); put('name', p.name || '');
     }
     if (ce) {
-      var c = ce.c;
-      put('course', c.course); put('period', c.periodText); put('method', ce.method); put('hours', hoursFor(sh.key, ce));
-      put('issuer', EDU.orgName(ce.issuer, sh.orgs)); put('no', c.no); put('date', c.date);
+      // 이수증에서 읽은 값만 씀: 못 읽은 칸(빈 값)은 이미 적어 둔 값을 지우지 않고 그대로 둠
+      var c = ce.c, putIf = function (k, val) { if (String(val == null ? '' : val).trim() !== '') put(k, val); else if (!ex) put(k, ''); };
+      putIf('course', c.course); putIf('period', c.periodText); putIf('method', ce.method); putIf('hours', hoursFor(sh.key, ce));
+      putIf('issuer', EDU.orgName(ce.issuer, sh.orgs)); putIf('no', c.no); putIf('date', c.date);
     }
     return v;
   }
@@ -1239,6 +1240,7 @@ if (typeof module !== 'undefined') module.exports = XW;
         j.rows.forEach(function (row, i) {
           var v = rowVals(sh, row, i + 1);
           if (row.ex) { v.__from = row.r; if (sh.cols.seq != null) v[sh.cols.seq] = i + 1; }
+          else v.__clear = true;                 // 새로 적는 사람: 그 자리에 있던 다른 사람 내용이 남지 않게 나머지 칸은 비움
           arr[i] = v;
         });
         // 남는 자료 줄(다른 과 사람·빈 줄)은 지워 표가 명단 끝에서 끝나게 함
