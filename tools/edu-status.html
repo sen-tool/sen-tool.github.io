@@ -102,6 +102,8 @@ footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--rule);color:v
 textarea{font:inherit;font-size:13px;width:100%;flex:1;min-height:140px;border:1px solid var(--rule);border-radius:8px;padding:8px 10px;color:var(--ink);resize:vertical;font-variant-numeric:tabular-nums}
 .hint{margin:6px 0 0;font-size:12.5px;color:var(--sub)}
 .ropts{display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:13px;color:var(--sub)}
+.ropts select.need{border:2px solid var(--err);background:var(--err-bg)}
+.hint.needmsg{color:var(--err);font-weight:700}
 .ropts select{font:inherit;font-size:13px;padding:3px 6px;border:1px solid var(--rule);border-radius:6px;max-width:100%}
 table.grid th.v{writing-mode:vertical-rl;white-space:nowrap;font-size:12px;padding:8px 4px;text-align:left;vertical-align:bottom}
 table.grid td.g{text-align:center;padding:6px 4px;font-weight:700;min-width:26px;border-left:1px solid #EDF1F3}
@@ -146,7 +148,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
 
   <section class="card todo" id="step2">
     <h2><span class="n">2</span>부서원 명단 붙여 넣기</h2>
-    <p class="lead">엑셀에서 <b>부서명 · 직급 · 이름</b> 세 칸을 끌어 복사(Ctrl+C)한 뒤 아래에 붙여 넣으세요(Ctrl+V). 이 순서대로 모든 시트에 적습니다. <b>서식에 이미 이름을 적어 두었으면 비워 둬도 됩니다.</b></p>
+    <p class="lead">엑셀에서 <b>부서명 · 직급 · 이름</b> 세 칸을 끌어 복사(Ctrl+C)한 뒤 아래에 붙여 넣으세요(Ctrl+V). 이 순서대로 모든 시트에 적습니다. <b>서식에 이름이 적혀 있으면 아래에서 부서를 꼭 고르세요.</b></p>
     <textarea id="roster" rows="7" placeholder="행정지원과	교육행정7급	홍길동&#10;행정지원과	교육행정8급	김철수&#10;…" spellcheck="false"></textarea>
     <p class="hint" id="rosterMsg">이름만 한 줄에 하나씩 적어도 됩니다.</p>
     <div class="ropts hidden" id="rosterOpts">
@@ -966,8 +968,10 @@ if (typeof module !== 'undefined') module.exports = XW;
   var M = null;
   function compute() {
     var pasted = EDU.parseRoster($('roster').value), dept = $('deptPick').value;
-    var base = pasted.length ? pasted : dept ? formRoster().filter(function (p) { return norm(p.dept) === dept; }) : formRoster();
-    var only = $('onlyRoster').checked && (pasted.length > 0 || !!dept);
+    // 서식에 이름이 적혀 있으면 부서 고르기는 필수 (붙여 넣은 명단이 있으면 그 명단)
+    var needDept = !pasted.length && formRoster().length > 0 && !dept;
+    var base = pasted.length ? pasted : dept === '__all' ? formRoster() : dept ? formRoster().filter(function (p) { return norm(p.dept) === dept; }) : needDept ? [] : formRoster();
+    var only = $('onlyRoster').checked && (pasted.length > 0 || (!!dept && dept !== '__all'));
     var roster = base.map(function (p, i) { return { id: 'r' + i, dept: p.dept, rank: p.rank, name: p.name }; });
     var people = roster.slice(), extras = [];
     var rec = {}, dups = [], noSheet = [], amb = [], noName = [], have = {}, outside = [];
@@ -1018,7 +1022,7 @@ if (typeof module !== 'undefined') module.exports = XW;
       }
       return { sh: sh, rows: rows };
     });
-    M = { only: only, outside: outside, roster: roster, people: people, extras: extras, rec: rec, had: had, dups: dups, noSheet: noSheet, amb: amb, noName: noName, sheets: sheets, jobs: jobs };
+    M = { needDept: needDept, only: only, outside: outside, roster: roster, people: people, extras: extras, rec: rec, had: had, dups: dups, noSheet: noSheet, amb: amb, noName: noName, sheets: sheets, jobs: jobs };
   }
   function dateKey(t) { var d = EDU.datesIn(t)[0]; return d ? d.y * 10000 + d.m * 100 + d.d : 0; }
   function hoursFor(k, ce) { return (hours[k] || '').trim() || (ce.keys.length === 1 ? ce.c.hours : ''); }
@@ -1049,11 +1053,12 @@ if (typeof module !== 'undefined') module.exports = XW;
     var all = formRoster(), cnt = {}, order = [];
     all.forEach(function (p) { var d = norm(p.dept); if (!d) return; if (!cnt[d]) { cnt[d] = 0; order.push([d, p.dept]); } cnt[d]++; });
     var dp = $('deptPick'), keep = dp.value;
-    dp.innerHTML = '<option value="">서식에 적힌 사람 전체 (' + all.length + '명)</option>' + order.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === keep ? ' selected' : '') + '>' + esc(o[1]) + ' (' + cnt[o[0]] + '명)</option>'; }).join('');
-    if (keep && !cnt[keep]) dp.value = '';
-    // 부서를 직접 고르지 않았으면: 이수증 소속에서 가장 많이 나온 부서, 없으면 지난번에 고른 부서
-    var autoWhy = '';
-    if (!deptTouched && !EDU.parseRoster($('roster').value).length && order.length > 1) {
+    dp.innerHTML = '<option value="">부서를 고르세요 (필수)</option>' + order.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === keep ? ' selected' : '') + '>' + esc(o[1]) + ' (' + cnt[o[0]] + '명)</option>'; }).join('') +
+      '<option value="__all"' + (keep === '__all' ? ' selected' : '') + '>서식에 적힌 사람 전체 (' + all.length + '명)</option>';
+    if (keep && keep !== '__all' && !cnt[keep]) dp.value = '';
+    // 고르는 것은 사용자 몫: 이수증 소속에서 가장 많이 나온 부서나 지난번 부서는 「추천」으로만 알려 줌
+    var autoWhy = '', hint = '';
+    if (!dp.value && !EDU.parseRoster($('roster').value).length && order.length) {
       var votes = {}, voters = 0;
       certs.forEach(function (ce) {
         if (ce.keys && !ce.keys.length) return;
@@ -1061,16 +1066,21 @@ if (typeof module !== 'undefined') module.exports = XW;
         if (hit.length) { voters++; hit.forEach(function (d) { votes[d[0]] = (votes[d[0]] || 0) + 1; }); }
       });
       var best = Object.keys(votes).sort(function (a, b) { return votes[b] - votes[a]; })[0];
-      if (best && votes[best] * 2 >= voters) { dp.value = best; autoWhy = '이수증 소속을 보고 골랐어요. 다르면 바꾸세요'; savedDept = best; try { localStorage.setItem('edu-dept-v1', best); } catch (e) {} }
-      else if (savedDept && cnt[savedDept]) { dp.value = savedDept; autoWhy = '지난번에 고른 부서예요'; }
+      var nameOf = function (k) { var o = order.filter(function (x) { return x[0] === k; })[0]; return o ? o[1] : k; };
+      if (best && votes[best] * 2 >= voters) hint = '이수증 소속으로 보면 「' + nameOf(best) + '」 같아요.';
+      else if (savedDept && cnt[savedDept]) hint = '지난번에 고른 부서: 「' + nameOf(savedDept) + '」';
     }
     $('rosterOpts').classList.toggle('hidden', !all.length);
-    var rc = EDU.parseRoster($('roster').value).length, fr = rc ? 0 : dp.value ? cnt[dp.value] : all.length;
+    var rc = EDU.parseRoster($('roster').value).length, fr = rc ? 0 : dp.value === '__all' ? all.length : dp.value ? cnt[dp.value] : 0;
+    var need = !rc && all.length > 0 && !dp.value;
+    dp.classList.toggle('need', need);
     $('step2').classList.toggle('todo', !rc && !fr);
     $('rosterMsg').textContent = rc ? '명단 ' + rc + '명' + (dp.value ? ' (붙여 넣은 명단을 쓰므로 부서 고르기는 쓰지 않음)' : '') :
       dp.value ? '서식에 적힌 「' + dp.options[dp.selectedIndex].text.replace(/ \(\d+명\)$/, '') + '」 ' + fr + '명을 명단으로 씁니다.' + (autoWhy ? ' (' + autoWhy + ')' : '') :
-      fr ? '붙여 넣은 명단이 없어 서식에 적힌 이름 ' + fr + '명 전체를 명단으로 씁니다. 우리 부서만 하려면 위에 붙여 넣거나 부서를 고르세요.' : '이름만 한 줄에 하나씩 적어도 됩니다.';
-    rc = rc || fr;
+      need ? '⚠ 아래에서 부서를 꼭 골라 주세요 (또는 명단을 붙여 넣기). ' + hint :
+      fr ? '서식에 적힌 이름 ' + fr + '명 전체를 명단으로 씁니다.' : '이름만 한 줄에 하나씩 적어도 됩니다.';
+    $('rosterMsg').classList.toggle('needmsg', need);
+    rc = rc || fr || (need ? 1 : 0);
     $('step3').classList.toggle('todo', !certs.length);
     $('srcLoaded').classList.toggle('hidden', !certs.length && !bad.length);
     var files = {}; certs.forEach(function (c) { files[c.file] = 1; });
@@ -1089,6 +1099,11 @@ if (typeof module !== 'undefined') module.exports = XW;
     var card = function (k, cls, num, label) { return '<button type="button" role="tab" data-tab="' + k + '" class="' + cls + '" aria-selected="' + (tab === k) + '"><b>' + num + '</b><span>' + label + '</span></button>'; };
     $('cards').innerHTML = card('grid', 'ok', n + '명', '한눈에 보기 (' + ks.length + '개 교육)') + card('miss', miss ? 'warn' : '', miss, '미이수 (사람×교육)') +
       card('certs', (M.amb.length || M.noName.length) ? 'warn' : '', certs.length - M.noSheet.length + (M.noSheet.length ? '<small> +뺀 ' + M.noSheet.length + '</small>' : ''), '읽은 이수증') + card('hours', '', ks.filter(function (s) { return (hours[s.key] || '').trim(); }).length + '/' + ks.length, '이수시간 정하기');
+    if (M.needDept) {
+      $('sumMsg').innerHTML = '<b style="color:var(--err)">2번에서 부서를 골라야 결과를 볼 수 있고 내려받을 수 있습니다.</b>';
+      $('download').disabled = true; $('needInfo').innerHTML = ''; $('cards').innerHTML = ''; $('panel').innerHTML = '';
+      return;
+    }
     $('sumMsg').innerHTML = '<b>' + n + '명</b> × 교육 <b>' + ks.length + '개</b>: 이수 ' + done + ' · 미이수 <b>' + miss + '</b>' + (M.roster.length ? '' : ' <b style="color:var(--warn)">(명단이 없어 이수증이 있는 사람만 적습니다)</b>');
     $('download').disabled = !ks.length || !n;
     var info = [];
