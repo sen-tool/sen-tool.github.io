@@ -439,7 +439,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.7.8 · 2026.10.21 17:12 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.7.9 · 2026.10.21 17:22 수정</a></div>
 </aside>
 
 <div class="main">
@@ -498,6 +498,12 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.7.9</b><span>2026.10.21 17:22</span></div>
+          <ul>
+            <li>법정교육 이수현황: 「이수증 폴더를 통째로 넣으면 된다」는 안내를 도구 3번 칸과 첫 화면 소개·사용 안내에 잘 보이게 넣음. 3번 칸은 「폴더 선택」을 앞에 두고, 섞여 있어도 되는 것(순서·다른 교육·다른 부서·PDF 아닌 파일)을 정리</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.7.8</b><span>2026.10.21 17:12</span></div>
           <ul>
@@ -856,7 +862,7 @@
         <a class="tile c-amber" href="#edu-status">
           <div class="top"><span class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-5 9 5-9 5-9-5z"/><path d="M7 11.2V16c0 1.4 2.2 3 5 3s5-1.6 5-3v-4.8"/><path d="M21 9v5"/></svg></span><span class="cat">교육</span></div>
           <div class="t">법정교육 이수현황 만들기</div>
-          <div class="d">이수현황 서식 + 부서원 명단 + 이수증 PDF → 교육별 시트에 채운 이수현황</div>
+          <div class="d">이수현황 서식 + 이수증 PDF 폴더째 → 교육별 시트에 채운 이수현황</div>
           <div class="f"><span>인터넷 없이 됨</span><span class="go">열기 →</span></div>
         </a>
         <a class="tile c-coral" href="#contract-ledger">
@@ -1055,8 +1061,8 @@
 
         <div class="tool c-amber" data-id="edu-status">
           <h3><span class="dot"></span><a href="#edu-status">법정교육 이수현황 만들기</a></h3>
-          <p class="desc">이수증 PDF를 읽어 교육별 시트에 부서원마다 한 줄씩 채웁니다. 묶음 과정 이수증 하나는 들어 있는 교육 시트마다 들어갑니다.</p>
-          <p class="io"><span class="in">이수현황 서식 + 명단 + 이수증 PDF</span><span class="arrow">→</span><span class="out">교육별 시트를 채운 이수현황</span><span class="net">· 인터넷 불필요</span></p>
+          <p class="desc">이수증 PDF를 읽어 교육별 시트에 부서원마다 한 줄씩 채웁니다. <b>이수증은 폴더째 통째로</b> 넣으면 되고(하위 폴더·여러 파일 한꺼번에), 다른 교육·다른 부서 이수증이 섞여 있어도 걸러 냅니다. 묶음 과정 이수증 하나는 들어 있는 교육 시트마다 들어갑니다.</p>
+          <p class="io"><span class="in">이수현황 서식 + 이수증 폴더</span><span class="arrow">→</span><span class="out">교육별 시트를 채운 이수현황</span><span class="net">· 인터넷 불필요</span></p>
           <details class="preview" open>
             <summary>결과 예시</summary>
             <p class="tiles"><span>부서원 <b>4</b></span><span>교육 <b>15</b></span><span>이수 <b>24</b></span><span>미이수 <b>36</b></span></p>
@@ -1121,8 +1127,8 @@
   });
 
   (function () {
-    var VERSION = '1.7.8';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.10.21 17:12';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.7.9';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.10.21 17:22';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
@@ -1171,7 +1177,7 @@
         check: '주황 칸(유형·제2조 호·답변요지·관련규정·추가답변 등)은 직접 작성하세요. 민원인 정보가 가려진 건은 국민신문고에서 직접 조회합니다.'
       },
       'edu-status': {
-        need: '교육마다 시트가 있는 이수현황 서식(엑셀, 작성 중인 파일도 됨), 서식에 적힌 부서원 중 우리 부서 고르기(필수, 여러 개 가능. 서식에 이름이 없으면 엑셀에서 부서명·직급·이름을 복사해 붙여 넣기), 이수증 PDF(교육·사람 상관없이 모두, 폴더째 가능). 스캔한 그림 PDF는 읽지 못합니다.',
+        need: '교육마다 시트가 있는 이수현황 서식(엑셀, 작성 중인 파일도 됨), 서식에 적힌 부서원 중 우리 부서 고르기(필수, 여러 개 가능. 서식에 이름이 없으면 엑셀에서 부서명·직급·이름을 복사해 붙여 넣기), 이수증 PDF — 하나씩 고르지 말고 이수증을 모아 둔 폴더를 통째로 넣으면 됨(하위 폴더까지, 다른 교육·다른 부서 이수증은 알아서 거름). 스캔한 그림 PDF는 읽지 못합니다.',
         steps: ['서식 넣기 → 우리 부서 고르기 → 이수증 PDF(폴더째)를 한꺼번에 넣기', '이수시간: 법정묶음 B·C는 교육별 인정 시간이 자동으로 들어감 (다르게 적을 교육만 「이수시간 정하기」에)', '「한눈에 보기」·「미이수」 확인 후 「이수현황 내려받기」'],
         check: '「읽은 이수증」에서 명단에 없는 이름, 교육을 못 찾은 이수증을 확인하세요. 이수증 하나짜리 교육은 이수증의 시간을 씁니다.'
       },
