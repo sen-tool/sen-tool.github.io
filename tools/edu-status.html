@@ -101,6 +101,9 @@ footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--rule);color:v
 @media (max-width:980px){.setup.three{grid-template-columns:1fr}}
 textarea{font:inherit;font-size:13px;width:100%;flex:1;min-height:140px;border:1px solid var(--rule);border-radius:8px;padding:8px 10px;color:var(--ink);resize:vertical;font-variant-numeric:tabular-nums}
 .hint{margin:6px 0 0;font-size:12.5px;color:var(--sub)}
+.folder-tips{margin:-4px 0 10px;padding:7px 11px 7px 26px;background:var(--mint);border-radius:8px;font-size:12.5px;color:var(--teal-2)}
+.folder-tips li{margin:1px 0}
+#drop button.solid{padding:6px 16px}
 .ropts{display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:13px;color:var(--sub)}
 .depts{display:flex;flex-wrap:wrap;gap:6px 8px;padding:8px;border:1px solid var(--rule);border-radius:8px;max-height:220px;overflow:auto}
 .depts.need{border:2px solid var(--err);background:var(--err-bg)}
@@ -171,12 +174,18 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
   </section>
 
   <section class="card todo" id="step3">
-    <h2><span class="n">3</span>이수증 PDF 넣기</h2>
-    <p class="lead">교육·사람 상관없이 이수증 PDF를 <b>모두 한꺼번에</b> 넣으세요. 묶음 과정 이수증 하나는 들어 있는 교육 시트마다 채웁니다.</p>
-    <div class="zone" id="drop" tabindex="0" role="button" aria-label="이수증 PDF 선택">
-      <strong>이수증 PDF를 여기에 놓으세요</strong>
-      <small>여러 개 한 번에 · 폴더째 끌어 놓아도 됨 (안의 폴더까지)</small>
-      <div class="row"><button type="button" id="pickFiles">파일 선택</button><button type="button" id="pickDir">폴더 선택</button><button type="button" class="plain" id="clearFiles">비우기</button></div>
+    <h2><span class="n">3</span>이수증 넣기 (폴더째)</h2>
+    <p class="lead">이수증 PDF를 하나씩 고를 필요 없이, <b>이수증을 모아 둔 폴더를 통째로</b> 넣으세요. 안의 하위 폴더까지 모두 읽습니다.</p>
+    <ul class="folder-tips">
+      <li>사람·교육 순서가 뒤섞여 있어도 됩니다.</li>
+      <li><b>다른 교육·다른 부서 사람 이수증</b>이 섞여 있어도 알아서 걸러 냅니다.</li>
+      <li>PDF가 아닌 파일(한글·사진 등)은 건너뜁니다.</li>
+      <li>법정묶음 이수증 한 장은 들어 있는 교육 시트마다 채웁니다.</li>
+    </ul>
+    <div class="zone" id="drop" tabindex="0" role="button" aria-label="이수증 폴더 또는 PDF 선택">
+      <strong>이수증 폴더를 여기로 끌어다 놓으세요</strong>
+      <small>폴더 통째로 · PDF 여러 개 한꺼번에 · 하위 폴더까지</small>
+      <div class="row"><button type="button" class="solid" id="pickDir">폴더 선택</button><button type="button" id="pickFiles">PDF 파일 선택</button><button type="button" class="plain" id="clearFiles">비우기</button></div>
     </div>
     <div class="loaded hidden" id="srcLoaded">
       <span class="tick">✓</span>
