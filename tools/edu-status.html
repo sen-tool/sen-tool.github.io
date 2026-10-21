@@ -326,6 +326,8 @@ var EDU = (function () {
   ];
   /* 글자로 교육 이름·기관이 안 나오는 이수증: 번호 모양으로 알아봄 (기관 이름·마크가 그림이라 PDF 글자에 없음) */
   var KNOWN = [
+    { re: /서울\s*교육\s*연수원|법정\s*묶음/, all: true, issuer: '서울특별시교육청교육연수원' },   // 「제 서울교육연수원-…」 번호·법정묶음 과정
+    { re: /중앙\s*교육\s*연수원/, all: true, issuer: '중앙교육연수원' },
     { re: /^\d{4}-CES\d+-\d+$/, k: 'unify', issuer: '통일부 국립통일교육원', method: '사이버교육', why: '번호 2026-CES… → 국립통일교육원(국립평화통일민주교육원) 이수증' }
   ];
   function rulesIn(text) {
@@ -457,11 +459,11 @@ var EDU = (function () {
       if (all.length === 1) { c.sheets = all; c.why = '과정명 밖의 글자(' + RULES.filter(function (r) { return r.k === all[0]; })[0].label + ')로 판단'; }
     }
     KNOWN.forEach(function (kn) {
-      if (!kn.re.test(trim(c.no))) return;
-      if (!c.sheets.length) c.sheets = [kn.k];
-      if (!c.issuer) c.issuer = kn.issuer;
-      if (!c.method) c.method = kn.method;
-      c.why = kn.why;
+      if (!kn.re.test(kn.all ? c.no + ' ' + c.course : trim(c.no))) return;
+      if (kn.k && !c.sheets.length) c.sheets = [kn.k];
+      if (kn.issuer && !c.issuer) c.issuer = kn.issuer;
+      if (kn.method && !c.method) c.method = kn.method;
+      if (kn.why) c.why = kn.why;
     });
     c.lines = lines;
     return c;
@@ -559,6 +561,11 @@ var EDU = (function () {
     var n = norm(cert.name);
     if (!n) return { st: 'noname' };
     var cand = people.filter(function (p) { return norm(p.name) === n; });
+    if (!cand.length) {          // 「홍길동(인)」「홍 길 동」「홍길동 주무관」처럼 붙은 글자가 있으면 한글 이름만 비교
+      var clean = function (x) { return norm(x).replace(/[(（][^)）]*[)）]/g, '').replace(/[^가-힣]/g, '').replace(/(주무관|선생님|님)$/, ''); };
+      var h = clean(cert.name);
+      cand = people.filter(function (p) { var q = clean(p.name); return q.length >= 2 && h === q; });
+    }
     if (cand.length === 1) return { st: 'ok', p: cand[0] };
     if (!cand.length) return { st: 'none' };
     var by = cand.filter(function (p) { return p.rank && norm(p.rank) === norm(cert.rank); });
@@ -610,7 +617,16 @@ var XW = (function () {
   }
 
   /* xml: 시트 XML, s~e: 자료 줄(1부터), rows: [{열번호: 값}], owned: 이 도구가 쓰는 열 번호들 */
-  function fillSheet(xml, s, e, rows, owned) {
+  // 글자 수로 줄 수를 어림해 줄 높이 정하기 (자동 줄 바꿈 칸이 잘려 보이지 않게)
+  function colWidths(xml) {
+    var w = {}, def = 9, m = /<sheetFormatPr\b[^>]*\bdefaultColWidth="([\d.]+)"/.exec(xml);
+    if (m) def = +m[1];
+    sliceTags(xml, 'col').forEach(function (t) { var a = +attr(t.head, 'min'), b = +attr(t.head, 'max'), ww = +attr(t.head, 'width'); for (var c = a; c <= Math.min(b, 60); c++) w[c - 1] = ww; });
+    return function (c) { return w[c] || def; };
+  }
+  function textWidth(t) { var n = 0; String(t).split('').forEach(function (ch) { n += ch.charCodeAt(0) > 0x2E80 ? 1.85 : 1.05; }); return n; }
+  function fillSheet(xml, s, e, rows, owned, restyle) {
+    var widthOf = colWidths(xml);
     var n = rows.length, end = Math.max(e, s + n - 1), d = end - e;
     var sdOpen = xml.indexOf('<sheetData'), tagEnd = xml.indexOf('>', sdOpen), sdClose = xml.indexOf('</sheetData>');
     var selfClosed = xml.charAt(tagEnd - 1) === '/';
@@ -643,7 +659,17 @@ var XW = (function () {
       var src = vals.__from ? cellsOf(byRow[vals.__from]) : null;
       Object.keys(cells).forEach(function (c) { cols[c] = 1; });
       owned.forEach(function (c) { cols[c] = 1; });
+      var lines = 1;
       var cx = Object.keys(cols).map(Number).sort(function (a, b) { return a - b; }).map(function (c) {
+        var x = cellFor(c);
+        if (restyle && owned.indexOf(c) >= 0) {
+          x = /^<c\b[^>]*\ss="/.test(x) ? x.replace(/^(<c\b[^>]*?\ss=")(\d+)"/, function (all, pre, n) { return pre + restyle(n) + '"'; }) : x.replace(/^<c\b/, '<c s="' + restyle('0') + '"');
+          var tv = /<t[^>]*>([^<]*)<\/t>/.exec(x) || /<v>([^<]*)<\/v>/.exec(x);
+          if (tv && tv[1]) lines = Math.max(lines, Math.ceil(textWidth(tv[1]) / Math.max(2, widthOf(c) - 1)));
+        }
+        return x;
+      }).join('');
+      function cellFor(c) {
         var ref = colName(c) + r, ct = cells[c] || tplCells[c];
         var st = ct ? attr(ct.head, 's') : null;
         var hasF = byRow[r] && cells[c] && /<f[\s>\/]/.test(cells[c].xml);   // 수식이 든 칸은 덮어쓰지 않음 (공유 수식이 깨지지 않게)
@@ -661,8 +687,12 @@ var XW = (function () {
         if (own && vals.__clear && !hasF) return cellXml(ref, st, null);
         if (!byRow[r] || !cells[c]) return cellXml(ref, st, null);        // 새 줄: 서식만
         return cells[c].xml.replace(/(<c\b[^>]*?\br=")[A-Z]+\d+"/, '$1' + ref + '"');
-      }).join('');
+      }
       var head = rt ? rt.head.replace(/\s(r|spans)="[^"]*"/g, '').replace(/\/>$/, '>') : '<row>';
+      if (restyle && lines > 1) {                                      // 여러 줄이면 줄 높이를 늘림 (원래보다 낮추지는 않음)
+        var oh = +(/\sht="([\d.]+)"/.exec(head) || [0, 0])[1], nh = Math.max(oh, Math.round((lines * 15 + 6) * 4) / 4);
+        if (nh > oh) head = head.replace(/\s(ht|customHeight)="[^"]*"/g, '').replace(/^<row/, '<row ht="' + nh + '" customHeight="1"');
+      }
       out.push({ r: r, xml: head.replace(/^<row/, '<row r="' + r + '"') + cx + '</row>' });
     });
     out.sort(function (a, b) { return a.r - b.r; });
@@ -684,6 +714,32 @@ var XW = (function () {
   }
 
   /* buf: 서식 파일, jobs: [{sheet: 시트 이름, s, e, rows, owned}] */
+  /* 칸 서식에 「자동 줄 바꿈」을 켠 스타일을 새로 만들어 씀 (글꼴·테두리·정렬은 그대로) */
+  function wrapStyles(xml) {
+    var ca = xml.indexOf('<cellXfs'), cb = xml.indexOf('</cellXfs>');
+    if (ca < 0 || cb < 0) return null;
+    var openEnd = xml.indexOf('>', ca) + 1;
+    var xfs = sliceTags(xml.slice(openEnd, cb), 'xf').map(function (t) { return t.xml; });
+    var cache = {}, changed = false;
+    return {
+      wrap: function (sIdx) {
+        if (cache.hasOwnProperty(sIdx)) return cache[sIdx];
+        var xf = xfs[+sIdx];
+        if (!xf) return (cache[sIdx] = sIdx);
+        if (/<alignment\b[^>]*\bwrapText="(1|true)"/.test(xf)) return (cache[sIdx] = sIdx);
+        var nx;
+        if (/<alignment\b/.test(xf)) nx = xf.replace(/<alignment\b([^>]*?)\s*(\/?)>/, function (all, at, sl) { return '<alignment' + at.replace(/\swrapText="[^"]*"/, '') + ' wrapText="1"' + (sl ? '/' : '') + '>'; });
+        else if (/\/>$/.test(xf)) nx = xf.replace(/\s*\/>$/, '><alignment wrapText="1"/></xf>');
+        else nx = xf.replace(/^(<xf\b[^>]*>)/, '$1<alignment wrapText="1"/>');
+        nx = /\bapplyAlignment="/.test(nx) ? nx.replace(/\bapplyAlignment="[^"]*"/, 'applyAlignment="1"') : nx.replace(/^<xf\b/, '<xf applyAlignment="1"');
+        xfs.push(nx); changed = true;
+        return (cache[sIdx] = String(xfs.length - 1));
+      },
+      changed: function () { return changed; },
+      finish: function () { return xml.slice(0, ca) + xml.slice(ca, openEnd).replace(/count="\d+"/, 'count="' + xfs.length + '"') + xfs.join('') + xml.slice(cb); }
+    };
+  }
+
   function build(buf, jobs) {
     var zip, wbXml, rels = {}, sheetTags;
     return JSZip.loadAsync(buf).then(function (z) {
@@ -694,15 +750,15 @@ var XW = (function () {
       var relXml = r[1];
       sliceTags(relXml, 'Relationship').forEach(function (t) { rels[attr(t.head, 'Id')] = attr(t.head, 'Target'); });
       sheetTags = sliceTags(wbXml, 'sheet');
-      var moved = {};
-      var chain = Promise.resolve();
+      var moved = {}, book = null;
+      var chain = zip.file('xl/styles.xml') ? zip.file('xl/styles.xml').async('string').then(function (st) { book = wrapStyles(st); }) : Promise.resolve();
       jobs.forEach(function (job) {
         chain = chain.then(function () {
           var idx = sheetTags.findIndex(function (t) { return attr(t.head, 'name') === esc(job.sheet).replace(/"/g, '&quot;') || attr(t.head, 'name') === job.sheet; });
           if (idx < 0) return;
           var path = 'xl/' + rels[attr(sheetTags[idx].head, 'r:id')].replace(/^\/?xl\//, '').replace(/^\//, '');
           return zip.file(path).async('string').then(function (xml) {
-            var res = fillSheet(xml, job.s, job.e, job.rows, job.owned);
+            var res = fillSheet(xml, job.s, job.e, job.rows, job.owned, book ? book.wrap : null);
             zip.file(path, res.xml);
             if (res.d) moved[idx] = res;
           });
@@ -722,6 +778,7 @@ var XW = (function () {
         if (/<calcPr\b/.test(wbXml)) wbXml = wbXml.replace(/<calcPr\b([^>]*?)\s*(\/?)>/, function (all, at, sl) { return '<calcPr' + at.replace(/\sfullCalcOnLoad="[^"]*"/, '') + ' fullCalcOnLoad="1"' + (sl ? '/' : '') + '>'; });
         else wbXml = wbXml.replace('</workbook>', '<calcPr fullCalcOnLoad="1"/></workbook>');
         zip.file('xl/workbook.xml', wbXml);
+        if (book && book.changed()) zip.file('xl/styles.xml', book.finish());
         // 계산 순서 기록(calcChain)은 지우고 연결도 함께 뺌
         if (zip.file('xl/calcChain.xml')) {
           zip.remove('xl/calcChain.xml');
