@@ -102,7 +102,12 @@ footer{margin-top:24px;padding-top:16px;border-top:1px solid var(--rule);color:v
 textarea{font:inherit;font-size:13px;width:100%;flex:1;min-height:140px;border:1px solid var(--rule);border-radius:8px;padding:8px 10px;color:var(--ink);resize:vertical;font-variant-numeric:tabular-nums}
 .hint{margin:6px 0 0;font-size:12.5px;color:var(--sub)}
 .ropts{display:flex;flex-direction:column;gap:6px;margin-top:8px;font-size:13px;color:var(--sub)}
-.ropts select.need{border:2px solid var(--err);background:var(--err-bg)}
+.depts{display:flex;flex-wrap:wrap;gap:6px 8px;padding:8px;border:1px solid var(--rule);border-radius:8px;max-height:220px;overflow:auto}
+.depts.need{border:2px solid var(--err);background:var(--err-bg)}
+.depts label.dept{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--rule);border-radius:99px;background:#fff;color:var(--ink);cursor:pointer;font-size:13px}
+.depts label.dept:has(input:checked){border-color:var(--teal);background:var(--mint);font-weight:700}
+.depts .dbtn{display:flex;gap:4px;width:100%}
+.depts .dbtn button{font-size:12px;padding:2px 10px}
 .hint.needmsg{color:var(--err);font-weight:700}
 details.paste{margin-top:10px}
 details.paste summary{cursor:pointer;color:var(--teal);font-size:13px}
@@ -152,9 +157,9 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
 
   <section class="card todo" id="step2">
     <h2><span class="n">2</span><span id="step2Title">부서 고르기</span></h2>
-    <p class="lead" id="step2Lead">서식에 적힌 <b>부서 · 직급 · 이름</b>을 그대로 씁니다. 우리 부서를 고르면 그 부서 사람만 서식 순서대로 모든 시트에 적습니다.</p>
+    <p class="lead" id="step2Lead">서식에 적힌 <b>부서 · 직급 · 이름</b>을 그대로 씁니다. 부서를 고르면(여러 개 가능) 그 부서 사람만 서식 순서대로 모든 시트에 적습니다.</p>
     <div class="ropts hidden" id="rosterOpts">
-      <label><select id="deptPick"><option value="">부서를 고르세요 (필수)</option></select></label>
+      <div class="depts" id="deptPick" role="group" aria-label="부서 고르기 (여러 개 가능)"></div>
       <label><input type="checkbox" id="onlyRoster" checked> 다른 부서 사람 줄은 빼고 <b>우리 부서만 남기기</b></label>
     </div>
     <p class="hint" id="rosterMsg">1번에 서식을 넣으면 서식에 적힌 부서가 나옵니다.</p>
@@ -886,8 +891,17 @@ if (typeof module !== 'undefined') module.exports = XW;
   }
   var hours = {};            // 교육별 이수시간
   var tab = 'grid', view = null;
-  var deptTouched = false, savedDept = '', pasteOpened = false;     // 부서 고르기: 직접 골랐는지, 지난번에 고른 부서
-  try { savedDept = localStorage.getItem('edu-dept-v1') || ''; } catch (e) {}
+  var deptTouched = false, savedDept = [], pasteOpened = false;     // 부서 고르기: 직접 골랐는지, 지난번에 고른 부서들
+  var sel = {};                                                     // 고른 부서 (붙여 쓴 부서 이름 → true), 여러 개 가능
+  try { savedDept = JSON.parse(localStorage.getItem('edu-depts-v2') || '[]') || []; } catch (e) { savedDept = []; }
+  // 서식에 적힌 사람들의 부서 목록 [붙여 쓴 이름, 보이는 이름, 인원]
+  function deptList() {
+    var cnt = {}, order = [];
+    formRoster().forEach(function (p) { var d = norm(p.dept); if (!d) return; if (!cnt[d]) { cnt[d] = 0; order.push(d); } cnt[d]++; });
+    var shown = {}; formRoster().forEach(function (p) { var d = norm(p.dept); if (d && !shown[d]) shown[d] = p.dept; });
+    return order.map(function (d) { return [d, shown[d], cnt[d]]; });
+  }
+  function chosenDepts() { return deptList().filter(function (d) { return sel[d[0]]; }).map(function (d) { return d[0]; }); }
   try { hours = JSON.parse(localStorage.getItem('edu-hours-v1') || '{}') || {}; } catch (e) { hours = {}; }
   function saveHours() { try { localStorage.setItem('edu-hours-v1', JSON.stringify(hours)); } catch (e) {} }
 
@@ -975,11 +989,12 @@ if (typeof module !== 'undefined') module.exports = XW;
   /* ---------- 맞추기 ---------- */
   var M = null;
   function compute() {
-    var pasted = EDU.parseRoster($('roster').value), dept = $('deptPick').value;
-    // 서식에 이름이 적혀 있으면 부서 고르기는 필수 (붙여 넣은 명단이 있으면 그 명단)
-    var needDept = !pasted.length && formRoster().length > 0 && !dept;
-    var base = pasted.length ? pasted : dept === '__all' ? formRoster() : dept ? formRoster().filter(function (p) { return norm(p.dept) === dept; }) : needDept ? [] : formRoster();
-    var only = $('onlyRoster').checked && (pasted.length > 0 || (!!dept && dept !== '__all'));
+    var pasted = EDU.parseRoster($('roster').value), depts = chosenDepts();
+    // 서식에 이름이 적혀 있으면 부서 고르기는 필수 (붙여 넣은 명단이 있으면 그 명단). 여러 부서를 고르면 서식 순서대로 합침
+    var needDept = !pasted.length && formRoster().length > 0 && !depts.length;
+    var fr0 = formRoster();
+    var base = pasted.length ? pasted : depts.length ? [].concat.apply([], depts.map(function (d) { return fr0.filter(function (p) { return norm(p.dept) === d; }); })) : needDept ? [] : fr0;   // 부서별로 묶고, 부서 안에서는 서식 순서
+    var only = $('onlyRoster').checked && (pasted.length > 0 || depts.length > 0);
     var roster = base.map(function (p, i) { return { id: 'r' + i, dept: p.dept, rank: p.rank, name: p.name }; });
     var people = roster.slice(), extras = [];
     var rec = {}, dups = [], noSheet = [], amb = [], noName = [], have = {}, outside = [];
@@ -1057,43 +1072,42 @@ if (typeof module !== 'undefined') module.exports = XW;
   /* ---------- 화면 ---------- */
   function refresh() {
     $('step1').classList.toggle('todo', !tpl);
-    // 서식에 적힌 사람들의 부서 목록
-    var all = formRoster(), cnt = {}, order = [];
-    all.forEach(function (p) { var d = norm(p.dept); if (!d) return; if (!cnt[d]) { cnt[d] = 0; order.push([d, p.dept]); } cnt[d]++; });
-    var dp = $('deptPick'), keep = dp.value;
-    dp.innerHTML = '<option value="">부서를 고르세요 (필수)</option>' + order.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === keep ? ' selected' : '') + '>' + esc(o[1]) + ' (' + cnt[o[0]] + '명)</option>'; }).join('') +
-      '<option value="__all"' + (keep === '__all' ? ' selected' : '') + '>서식에 적힌 사람 전체 (' + all.length + '명)</option>';
-    if (keep && keep !== '__all' && !cnt[keep]) dp.value = '';
+    // 부서 체크 상자 (여러 개 고르기)
+    var all = formRoster(), list = deptList();
+    var dp = $('deptPick'), nameOf = function (k) { var o = list.filter(function (x) { return x[0] === k; })[0]; return o ? o[1] : k; };
+    dp.innerHTML = list.map(function (d) { return '<label class="dept"><input type="checkbox" value="' + esc(d[0]) + '"' + (sel[d[0]] ? ' checked' : '') + '> ' + esc(d[1]) + ' <span class="why">' + d[2] + '명</span></label>'; }).join('') +
+      (list.length > 1 ? '<span class="dbtn"><button type="button" class="plain" data-all="1">모두 고르기</button><button type="button" class="plain" data-all="0">모두 풀기</button></span>' : '');
+    var picked = chosenDepts();
     // 고르는 것은 사용자 몫: 이수증 소속에서 가장 많이 나온 부서나 지난번 부서는 「추천」으로만 알려 줌
-    var autoWhy = '', hint = '';
-    if (!dp.value && !EDU.parseRoster($('roster').value).length && order.length) {
+    var hint = '';
+    if (!picked.length && !EDU.parseRoster($('roster').value).length && list.length) {
       var votes = {}, voters = 0;
       certs.forEach(function (ce) {
         if (ce.keys && !ce.keys.length) return;
-        var o = norm(ce.c.org), hit = order.filter(function (d) { return o.indexOf(d[0]) >= 0; });
+        var o = norm(ce.c.org), hit = list.filter(function (d) { return o.indexOf(d[0]) >= 0; });
         if (hit.length) { voters++; hit.forEach(function (d) { votes[d[0]] = (votes[d[0]] || 0) + 1; }); }
       });
       var best = Object.keys(votes).sort(function (a, b) { return votes[b] - votes[a]; })[0];
-      var nameOf = function (k) { var o = order.filter(function (x) { return x[0] === k; })[0]; return o ? o[1] : k; };
+      var prev = savedDept.filter(function (k) { return list.some(function (d) { return d[0] === k; }); });
       if (best && votes[best] * 2 >= voters) hint = '이수증 소속으로 보면 「' + nameOf(best) + '」 같아요.';
-      else if (savedDept && cnt[savedDept]) hint = '지난번에 고른 부서: 「' + nameOf(savedDept) + '」';
+      else if (prev.length) hint = '지난번에 고른 부서: ' + prev.map(function (k) { return '「' + nameOf(k) + '」'; }).join(', ');
     }
     $('rosterOpts').classList.toggle('hidden', !all.length);
     // 서식에 이름이 있으면 「부서 고르기」, 없으면 「명단 붙여 넣기」를 앞에
     var noNames = !!tpl && !all.length;
     $('step2Title').textContent = noNames ? '부서원 명단 붙여 넣기' : '부서 고르기';
     $('step2Lead').innerHTML = noNames ? '서식에 이름이 적혀 있지 않아요. 아래에 부서원 명단을 붙여 넣으면 그 순서대로 모든 시트에 적습니다.' :
-      '서식에 적힌 <b>부서 · 직급 · 이름</b>을 그대로 씁니다. 우리 부서를 고르면 그 부서 사람만 서식 순서대로 모든 시트에 적습니다.';
+      '서식에 적힌 <b>부서 · 직급 · 이름</b>을 그대로 씁니다. 부서를 고르면(여러 개 가능) 그 부서 사람만 서식 순서대로 모든 시트에 적습니다.';
     if (noNames && !pasteOpened) { $('pasteBox').open = true; pasteOpened = true; }
-    var rc = EDU.parseRoster($('roster').value).length, fr = rc ? 0 : dp.value === '__all' ? all.length : dp.value ? cnt[dp.value] : 0;
-    var need = !rc && all.length > 0 && !dp.value;
+    var rc = EDU.parseRoster($('roster').value).length;
+    var fr = rc ? 0 : picked.reduce(function (n, k) { return n + list.filter(function (d) { return d[0] === k; })[0][2]; }, 0);
+    var need = !rc && all.length > 0 && !picked.length;
     dp.classList.toggle('need', need);
     $('step2').classList.toggle('todo', !rc && !fr);
     $('rosterMsg').textContent = !tpl && !rc ? '1번에 서식을 넣으면 서식에 적힌 부서가 나옵니다.' :
       rc ? '붙여 넣은 명단 ' + rc + '명을 씁니다' + (all.length ? ' (부서 고르기 대신)' : '') + '.' :
-      dp.value === '__all' ? '서식에 적힌 사람 전체 ' + fr + '명을 씁니다.' :
-      dp.value ? '「' + dp.options[dp.selectedIndex].text.replace(/ \(\d+명\)$/, '') + '」 ' + fr + '명을 서식 순서대로 씁니다.' :
-      need ? '⚠ 부서를 꼭 골라 주세요. ' + hint :
+      picked.length ? picked.map(function (k) { return '「' + nameOf(k) + '」'; }).join(' + ') + ' ' + fr + '명을 ' + (picked.length > 1 ? '부서별로 묶어 ' : '') + '서식 순서대로 씁니다.' :
+      need ? '⚠ 부서를 하나 이상 꼭 골라 주세요. ' + hint :
       '명단이 없으면 이수증이 있는 사람만 적습니다.';
     $('rosterMsg').classList.toggle('needmsg', need);
     rc = rc || fr || (need ? 1 : 0);
@@ -1247,7 +1261,12 @@ if (typeof module !== 'undefined') module.exports = XW;
   });
   var rt = null;
   $('roster').addEventListener('input', function () { clearTimeout(rt); rt = setTimeout(refresh, 250); });
-  $('deptPick').addEventListener('change', function () { deptTouched = true; savedDept = this.value; try { localStorage.setItem('edu-dept-v1', savedDept); } catch (e) {} refresh(); });
+  function saveDepts() { deptTouched = true; savedDept = chosenDepts(); try { localStorage.setItem('edu-depts-v2', JSON.stringify(savedDept)); } catch (e) {} refresh(); }
+  $('deptPick').addEventListener('change', function (e) { if (e.target.type === 'checkbox') { sel[e.target.value] = e.target.checked; saveDepts(); } });
+  $('deptPick').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-all]'); if (!b) return;
+    deptList().forEach(function (d) { sel[d[0]] = b.getAttribute('data-all') === '1'; }); saveDepts();
+  });
   $('onlyRoster').addEventListener('change', refresh);
   $('download').addEventListener('click', save);
   function wireDrop(el, onFiles, pickFn) {
