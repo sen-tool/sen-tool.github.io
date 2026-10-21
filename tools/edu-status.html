@@ -186,6 +186,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
     <tr><td class="auto">이수증번호</td><td>이수증 맨 위 「제 … 호」</td></tr>
     <tr><td class="auto">교육수료일</td><td>이수증 아래 날짜 (2026년 4월 29일 → 2026.4.29.)</td></tr>
   </table>
+  <p class="lead" style="margin-top:12px">읽는 이수증 모양: 서울특별시교육청교육연수원(「연 수 과 정」), 한국양성평등교육진흥원(「교육과정」「교육인정시간」), 통일교육(「과 정」「기 간」이 한 줄). 과정명에 교육 이름이 없거나 교육기관·교육방법이 적혀 있지 않으면 「읽은 이수증」에서 한 번 고르세요. 이 PC에 기억해 같은 번호 모양(예: 2026-CES…)의 이수증에는 다음부터 알아서 씁니다.</p>
   <p class="lead" style="margin-top:12px">시트를 고르는 교육 이름: <span id="ruleList"></span></p>
 </section>
 
@@ -352,7 +353,7 @@ var EDU = (function () {
     ['kind', ['연수종류', '교육종류']],
     ['period', ['연수기간', '교육기간', '수강기간', '학습기간', '이수기간', '기간']],
     ['course', ['연수과정', '교육과정', '과정명', '교육명', '과정', '연수명']],
-    ['hours', ['이수시간', '교육시간', '학습시간', '연수시간', '시간']],
+    ['hours', ['교육인정시간', '이수인정시간', '인정시간', '이수시간', '교육시간', '학습시간', '연수시간', '시간']],
     ['no', ['이수번호', '이수증번호', '증서번호', '수료번호', '발급번호']]
   ];
   function labelOf(line) {
@@ -383,37 +384,60 @@ var EDU = (function () {
     m = /(\d+)\s*차시/.exec(String(s || ''));
     return m ? m[1] + '차시' : '';
   }
+  // 한 줄에 칸이 둘 붙은 경우(「과 정 : … 기 간 : …」) 나누고, 줄 전체를 감싼 괄호는 벗김
+  var LABEL_RE = new RegExp('(' + [].concat.apply([], LABELS.map(function (l) { return l[1]; })).sort(function (a, b) { return b.length - a.length; })
+    .map(function (L) { return L.split('').join('\\s*'); }).join('|') + ')\\s*[:：]', 'g');
+  function splitLabels(lines) {
+    var out = [];
+    lines.forEach(function (line) {
+      line = trim(line).replace(/^\((.*)\)$/, '$1');
+      var cuts = [0], m;
+      LABEL_RE.lastIndex = 0;
+      while ((m = LABEL_RE.exec(line))) if (m.index > 0 && /\s/.test(line.charAt(m.index - 1))) cuts.push(m.index);
+      cuts.push(line.length);
+      for (var i = 0; i < cuts.length - 1; i++) { var part = trim(line.slice(cuts[i], cuts[i + 1])); if (part) out.push(part); }
+    });
+    return out;
+  }
   function parseCert(lines) {
     var c = { org: '', rank: '', name: '', birth: '', period: '', course: '', hours: '', no: '', date: '', issuer: '', method: '' };
     var cur = null;
+    lines = splitLabels(lines);
     lines.forEach(function (line, i) {
       var cl = norm(line);
       var no = /^제\s*(.+?)\s*호$/.exec(trim(line));
       if (no && !c.no) { c.no = '제 ' + trim(no[1]) + ' 호'; cur = null; return; }
       var nm = /^(?:NO\.?|No\.?|번호)\s*[:：]?\s*(.+)$/.exec(trim(line));
-      if (nm && !c.no && /\d/.test(nm[1])) { c.no = trim(line); cur = null; return; }
+      if (nm && !c.no && /\d/.test(nm[1])) { c.no = trim(nm[1]); cur = null; return; }
+      // 맨 위의 번호만 있는 줄 (2026-CES3007221-287390)
+      if (!c.no && !c.name && !/[가-힣]/.test(line) && /\d/.test(line) && /-/.test(line) && cl.length >= 8) { c.no = trim(line); cur = null; return; }
       var lb = labelOf(line);
       if (lb) {
         var v = valueOf(line, lb.L);
         if (!c[lb.f]) c[lb.f] = v;
         cur = lb.f; return;
       }
-      if (/위와\s*같이|증명합니다|수료하였음|이수하였음/.test(line)) { cur = null; return; }
-      if (/^\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일$/.test(cl)) { c.date = datesIn(line)[0].t; cur = null; return; }
+      if (/위와\s*같이|위\s*사람은|상기와\s*같이|증명합니다|수료하였음|이수하였음/.test(line)) { cur = null; return; }
+      if (/^\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일$/.test(cl) || /^\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2}\.?$/.test(cl)) { c.date = datesIn(line)[0].t; cur = null; return; }
+      // 날짜 아래 발급기관 (「…원장」 또는 장 없이 「한국양성평등교육진흥원」)
+      if (c.date && !c.issuer && /[가-힣]/.test(line) && cl.length <= 30 && /(원|청|부|센터|재단|위원회)$/.test(cl)) { c.issuer = trim(line); cur = null; return; }
       if (/(원장|청장|교육감|장관|이사장|원\s*장)$/.test(cl) && c.date && !c.issuer) { c.issuer = trim(line).replace(/\s*(원\s*장|장)$/, function (m) { return /원/.test(m) ? '원' : ''; }); cur = null; return; }
       // 줄이 넘어간 값 (근무기관 · 연수과정이 길면 다음 줄로 넘어감): 낱말 중간에서 넘어가는 일이 많아 붙여 씀
       if (cur === 'course') c.course = c.course + line;
       else if (cur === 'org') c.org = trim(c.org + ' ' + line);
     });
     if (!c.issuer) { var li = lines.filter(function (l) { return /(원장|청장)$/.test(norm(l)); }).pop(); if (li) c.issuer = trim(li).replace(/\s*장$/, ''); }
+    if (/^\d+(\.\d+)?$/.test(trim(c.hours))) c.hours = trim(c.hours) + '시간';         // 「교육인정시간 : 1」
+    else if (c.hours) c.hours = hoursIn(c.hours) || trim(c.hours);
     if (!c.hours) c.hours = hoursIn(c.period) || hoursIn(c.course);
-    if (/\(원격\)|원격|사이버|온라인|이러닝|e-?러닝/i.test(c.course + ' ' + c.kind + ' ' + c.no)) c.method = '사이버교육';
+    if (/\(원격\)|원격|사이버|온라인|이러닝|e-?러닝/i.test(c.course + ' ' + c.kind + ' ' + c.no + ' ' + lines.join(' '))) c.method = '사이버교육';
     else if (/집합|대면|현장/.test(c.course + ' ' + c.kind)) c.method = '대면';
     var pd = datesIn(c.period);
     c.periodText = pd.length >= 2 ? pd[0].t + '~' + pd[1].t : pd.length ? pd[0].t : trim(String(c.period).replace(/\(.*$/, ''));
     if (!c.date && pd.length) c.date = pd[pd.length - 1].t;
     c.dept = trim(c.org).split(' ').filter(Boolean).pop() || '';
     c.sheets = rulesIn(c.course);
+    c.lines = lines;
     return c;
   }
 
@@ -511,7 +535,7 @@ var EDU = (function () {
     return by.length === 1 ? { st: 'ok', p: by[0] } : { st: 'ambiguous', cand: cand };
   }
 
-  return { RULES: RULES, rulesIn: rulesIn, toLines: toLines, parseCert: parseCert, parseRoster: parseRoster,
+  return { RULES: RULES, rulesIn: rulesIn, splitLabels: splitLabels, toLines: toLines, parseCert: parseCert, parseRoster: parseRoster,
            locateSheets: locateSheets, orgName: orgName, matchPerson: matchPerson, norm: norm, datesIn: datesIn };
 })();
 if (typeof module !== 'undefined') module.exports = EDU;
@@ -675,7 +699,23 @@ if (typeof module !== 'undefined') module.exports = XW;
   var certs = [];            // { id, file, page, c, lines }
   var bad = [];              // 읽지 못한 파일
   var seen = {};             // 같은 파일 두 번 넣기 막기
-  var pick = {};             // 교육을 못 찾은 이수증에 직접 고른 교육: id → key
+  var pick = {};             // 이수증에 없어 직접 고른 값: id → { k: 교육, issuer: 교육기관, method: 교육방법 }
+  var learn = {};            // 고른 값 기억: 번호 모양(CES 등)·과정명 → { k, issuer, method }
+  try { learn = JSON.parse(localStorage.getItem('edu-learn-v1') || '{}') || {}; } catch (e) { learn = {}; }
+  function saveLearn() { try { localStorage.setItem('edu-learn-v1', JSON.stringify(learn)); } catch (e) {} }
+  // 이수증을 알아볼 표: 번호에 영문이 섞인 번호 모양(2026-CES3007221-287390 → #-CES#-#)과 과정명
+  function tagsOf(c) {
+    var t = [], fam = String(c.no || '').replace(/\d+/g, '#').replace(/\s+/g, '');
+    if (/[A-Za-z]{2,}/.test(fam)) t.push('f:' + fam);
+    if (c.course) t.push('c:' + norm(c.course));
+    return t;
+  }
+  function chosen(ce, f) {
+    if (pick[ce.id] && pick[ce.id][f]) return pick[ce.id][f];
+    var t = tagsOf(ce.c);
+    for (var i = 0; i < t.length; i++) if (learn[t[i]] && learn[t[i]][f]) return learn[t[i]][f];
+    return '';
+  }
   var hours = {};            // 교육별 이수시간
   var tab = 'grid', view = null;
   try { hours = JSON.parse(localStorage.getItem('edu-hours-v1') || '{}') || {}; } catch (e) { hours = {}; }
@@ -755,7 +795,10 @@ if (typeof module !== 'undefined') module.exports = XW;
     var rec = {}, dups = [], noSheet = [], amb = [], noName = [];
     certs.forEach(function (ce) {
       var c = ce.c;
-      var keys = pick[ce.id] ? [pick[ce.id]] : c.sheets.slice();
+      var kk = chosen(ce, 'k');
+      var keys = c.sheets.length ? c.sheets.slice() : kk ? [kk] : [];
+      ce.issuer = c.issuer || chosen(ce, 'issuer');
+      ce.method = c.method || chosen(ce, 'method');
       ce.keys = keys;
       if (!keys.length) noSheet.push(ce);
       var m = EDU.matchPerson(people, c);
@@ -801,8 +844,8 @@ if (typeof module !== 'undefined') module.exports = XW;
     put('name', (p && p.name) || ex.name || '');
     if (ce) {
       var c = ce.c;
-      put('course', c.course); put('period', c.periodText); put('method', c.method); put('hours', hoursFor(sh.key, ce));
-      put('issuer', EDU.orgName(c.issuer, sh.orgs)); put('no', c.no); put('date', c.date);
+      put('course', c.course); put('period', c.periodText); put('method', ce.method); put('hours', hoursFor(sh.key, ce));
+      put('issuer', EDU.orgName(ce.issuer, sh.orgs)); put('no', c.no); put('date', c.date);
     }
     return v;
   }
@@ -839,6 +882,8 @@ if (typeof module !== 'undefined') module.exports = XW;
     if (M.amb.length) info.push('명단에 같은 이름이 여럿이라 누구인지 모르는 이수증 <b>' + M.amb.length + '장</b>: ' + M.amb.map(function (ce) { return esc(ce.c.name); }).join(', ') + ' — 명단에 직급을 적으면 직급으로 가립니다.');
     if (M.noName.length) info.push('성명을 읽지 못한 이수증 <b>' + M.noName.length + '장</b>: ' + M.noName.map(function (ce) { return esc(ce.file); }).join(', '));
     if (M.noSheet.length) info.push('들어갈 교육을 찾지 못한 이수증 <b>' + M.noSheet.length + '장</b> — 「읽은 이수증」에서 교육을 골라 주세요.');
+    var noOrg = certs.filter(function (ce) { return ce.keys && ce.keys.length && (!ce.issuer || !ce.method); });
+    if (noOrg.length) info.push('교육기관이나 교육방법이 적혀 있지 않은 이수증 <b>' + noOrg.length + '장</b>: ' + noOrg.map(function (ce) { return esc(ce.c.name || ce.file); }).join(', ') + ' — 「읽은 이수증」에서 골라 주면 같은 모양의 이수증은 다음부터 알아서 씁니다.');
     if (M.dups.length) info.push('같은 사람·같은 교육 이수증이 둘 이상 <b>' + M.dups.length + '건</b> — 수료일이 늦은 것을 씁니다.');
     var noH = ks.filter(function (s) { return !(hours[s.key] || '').trim() && certs.some(function (ce) { return ce.keys && ce.keys.length > 1 && ce.keys.indexOf(s.key) >= 0; }); });
     if (noH.length) info.push('묶음 과정 이수증이 들어간 교육 중 이수시간을 정하지 않은 교육 <b>' + noH.length + '개</b> — 「이수시간 정하기」에 적으면 그 시간으로 채웁니다 (비우면 빈칸).');
@@ -871,17 +916,27 @@ if (typeof module !== 'undefined') module.exports = XW;
   }
   function certsHtml() {
     if (!certs.length) return '<div class="empty">3번에 이수증 PDF를 넣으세요.</div>';
-    var opts = M.sheets.map(function (sh) { return '<option value="' + sh.key + '">' + esc(short(sh)) + '</option>'; }).join('');
+    var orgs = [];
+    M.sheets.forEach(function (sh) { sh.orgs.forEach(function (o) { if (orgs.indexOf(o) < 0) orgs.push(o); }); });
+    function selectOf(ce, f, first, list) {
+      var cur = chosen(ce, f);
+      return '<select data-pick="' + ce.id + '" data-f="' + f + '"><option value="">' + first + '</option>' + list.map(function (o) {
+        return '<option value="' + esc(o[0]) + '"' + (o[0] === cur ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>';
+    }
+    var kList = M.sheets.map(function (sh) { return [sh.key, short(sh)]; });
     return '<div class="tbl"><table class="list"><thead><tr><th>파일</th><th>이름</th><th>연수 과정 → 들어갈 교육</th><th>기간 · 수료일</th><th>이수증번호 · 기관</th></tr></thead><tbody>' +
       certs.map(function (ce) {
         var c = ce.c, who = ce.person ? (ce.person.extra ? '<span class="tag warn">명단에 없음</span>' : '<span class="tag ok">명단</span>') : M.amb.indexOf(ce) >= 0 ? '<span class="tag warn">동명이인</span>' : '<span class="tag warn">성명 없음</span>';
         var ks = ce.keys.length ? ce.keys.map(function (k) { return '<span class="tag gray">' + esc(RULE[k] ? RULE[k].label : k) + '</span>'; }).join(' ') : '';
-        var sel = !c.sheets.length ? '<select data-pick="' + ce.id + '"><option value="">교육 고르기…</option>' + opts.replace('value="' + (pick[ce.id] || '#') + '"', 'value="' + pick[ce.id] + '" selected') + '</select>' : '';
+        var sel = !c.sheets.length ? selectOf(ce, 'k', '교육 고르기…', kList) : '';
+        var iSel = !c.issuer ? '<br>' + selectOf(ce, 'issuer', '교육기관 고르기…', orgs.map(function (o) { return [o, o]; })) : '';
+        var mSel = !c.method ? '<br>' + selectOf(ce, 'method', '교육방법 고르기…', [['사이버교육', '사이버교육'], ['대면', '대면']]) : '';
+        var mem = (!c.sheets.length || !c.issuer || !c.method) && tagsOf(c).length ? '<br><span class="why">고른 값은 이 PC에 기억해, 같은 모양의 이수증에 다음부터 씁니다</span>' : '';
         var unk = c.sheets.filter(function (k) { return !M.sheets.some(function (sh) { return sh.key === k; }); });
         return '<tr><td>' + esc(ce.file) + (ce.page ? ' <span class="why">' + ce.page + '쪽</span>' : '') + '</td><td><b>' + esc(c.name || '?') + '</b> ' + who + '<br><span class="why">' + esc(c.rank) + ' · ' + esc(c.dept) + '</span></td>' +
           '<td>' + esc(c.course || '(과정 못 읽음)') + '<br>' + ks + sel + (unk.length ? ' <span class="why">서식에 없는 교육: ' + unk.map(function (k) { return esc(RULE[k].label); }).join(', ') + '</span>' : '') +
           '<details><summary>글자 보기</summary><pre>' + esc(ce.lines.join('\n')) + '</pre></details></td>' +
-          '<td class="d">' + esc(c.periodText) + '<br>' + esc(c.date) + (c.hours ? '<br><span class="why">' + esc(c.hours) + '</span>' : '') + '</td><td>' + esc(c.no) + '<br><span class="why">' + esc(c.issuer) + '</span></td></tr>';
+          '<td class="d">' + esc(c.periodText) + '<br>' + esc(c.date) + (c.hours ? '<br><span class="why">' + esc(c.hours) + '</span>' : '') + (c.method ? '<br><span class="why">' + esc(c.method) + '</span>' : '') + mSel + '</td><td>' + esc(c.no) + '<br><span class="why">' + esc(c.issuer) + '</span>' + iSel + mem + '</td></tr>';
       }).join('') + '</tbody></table></div>';
   }
   function hoursHtml() {
@@ -912,8 +967,13 @@ if (typeof module !== 'undefined') module.exports = XW;
   /* ---------- 이벤트 ---------- */
   $('cards').addEventListener('click', function (e) { var b = e.target.closest('[data-tab]'); if (b) { tab = b.getAttribute('data-tab'); render(); } });
   $('panel').addEventListener('change', function (e) {
-    var id = e.target.getAttribute('data-pick');
-    if (id) { if (e.target.value) pick[id] = e.target.value; else delete pick[id]; compute(); render(); }
+    var id = e.target.getAttribute('data-pick'), f = e.target.getAttribute('data-f');
+    if (id && f) {
+      var ce = certs.filter(function (x) { return String(x.id) === id; })[0], v = e.target.value;
+      pick[id] = pick[id] || {}; pick[id][f] = v;
+      if (ce) tagsOf(ce.c).forEach(function (t) { learn[t] = learn[t] || {}; if (v) learn[t][f] = v; else delete learn[t][f]; });
+      saveLearn(); compute(); render();
+    }
   });
   $('panel').addEventListener('input', function (e) {
     var k = e.target.getAttribute('data-hours');
