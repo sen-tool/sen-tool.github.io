@@ -439,7 +439,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.6.1 · 2026.10.21 10:11 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.6.2 · 2026.10.21 10:17 수정</a></div>
 </aside>
 
 <div class="main">
@@ -498,6 +498,13 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.6.2</b><span>2026.10.21 10:17</span></div>
+          <ul>
+            <li>법정교육 이수현황: 실제 이수증 PDF에 맞춤. 통일교육 이수증(번호 2026-CES…)은 기관 이름이 그림이라 번호 모양으로 알아봐 통일교육 시트 · 통일부 국립통일교육원 · 사이버교육으로 채움. 소속 글자가 「소 속 :」보다 위에 찍힌 것도 읽음</li>
+            <li>성인지·통일교육은 과정명이 제각각이어도 이수증의 다른 글자(「공무원 성인지 사이버교육」, 발급기관)로 알아봄</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.6.1</b><span>2026.10.21 10:11</span></div>
           <ul>
@@ -1030,8 +1037,8 @@
   });
 
   (function () {
-    var VERSION = '1.6.1';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.10.21 10:11';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.6.2';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.10.21 10:17';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',

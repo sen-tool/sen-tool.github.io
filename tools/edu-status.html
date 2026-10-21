@@ -186,7 +186,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
     <tr><td class="auto">이수증번호</td><td>이수증 맨 위 「제 … 호」</td></tr>
     <tr><td class="auto">교육수료일</td><td>이수증 아래 날짜 (2026년 4월 29일 → 2026.4.29.)</td></tr>
   </table>
-  <p class="lead" style="margin-top:12px">읽는 이수증 모양: 서울특별시교육청교육연수원(「연 수 과 정」), 한국양성평등교육진흥원(「교육과정」「교육인정시간」), 통일교육(「과 정」「기 간」이 한 줄). 과정명에 교육 이름이 없거나 교육기관·교육방법이 적혀 있지 않으면 「읽은 이수증」에서 한 번 고르세요. 이 PC에 기억해 같은 번호 모양(예: 2026-CES…)의 이수증에는 다음부터 알아서 씁니다.</p>
+  <p class="lead" style="margin-top:12px">읽는 이수증 모양: 서울특별시교육청교육연수원(「연 수 과 정」), 한국양성평등교육진흥원(「교육과정」「교육인정시간」), 통일교육(번호 2026-CES…). 성인지·통일교육은 아무 과정이나 들을 수 있어 과정명이 달라도, 이수증의 다른 글자(「공무원 성인지 사이버교육」, 한국양성평등교육진흥원)나 번호 모양(CES → 국립통일교육원, 사이버교육)으로 알아봅니다. 그래도 모르면 「읽은 이수증」에서 한 번 고르세요. 이 PC에 기억해 같은 번호 모양(예: 2026-CES…)의 이수증에는 다음부터 알아서 씁니다.</p>
   <p class="lead" style="margin-top:12px">시트를 고르는 교육 이름: <span id="ruleList"></span></p>
 </section>
 
@@ -317,6 +317,10 @@ var EDU = (function () {
     { k: 'unify', label: '통일', re: /통일/ },
     { k: 'gender', label: '성인지', re: /성\s*인지|양성\s*평등/ }
   ];
+  /* 글자로 교육 이름·기관이 안 나오는 이수증: 번호 모양으로 알아봄 (기관 이름·마크가 그림이라 PDF 글자에 없음) */
+  var KNOWN = [
+    { re: /^\d{4}-CES\d+-\d+$/, k: 'unify', issuer: '통일부 국립통일교육원', method: '사이버교육', why: '번호 2026-CES… → 국립통일교육원(국립평화통일민주교육원) 이수증' }
+  ];
   function rulesIn(text) {
     var t = norm(text);
     return RULES.filter(function (r) { return r.re.test(t); }).map(function (r) { return r.k; });
@@ -401,7 +405,7 @@ var EDU = (function () {
   }
   function parseCert(lines) {
     var c = { org: '', rank: '', name: '', birth: '', period: '', course: '', hours: '', no: '', date: '', issuer: '', method: '' };
-    var cur = null;
+    var cur = null, loose = [], empty = null;
     lines = splitLabels(lines);
     lines.forEach(function (line, i) {
       var cl = norm(line);
@@ -414,6 +418,9 @@ var EDU = (function () {
       var lb = labelOf(line);
       if (lb) {
         var v = valueOf(line, lb.L);
+        // 「소 속 :」처럼 값이 비면, 값 글자가 라벨보다 조금 위에 찍혀 앞줄로 간 경우 → 바로 앞의 남는 줄
+        if (!v && loose.length && (lb.f === 'org' || lb.f === 'course' || lb.f === 'name' || lb.f === 'rank')) { v = loose.join(' '); }
+        loose = [];
         if (!c[lb.f]) c[lb.f] = v;
         cur = lb.f; return;
       }
@@ -425,6 +432,7 @@ var EDU = (function () {
       // 줄이 넘어간 값 (근무기관 · 연수과정이 길면 다음 줄로 넘어감): 낱말 중간에서 넘어가는 일이 많아 붙여 씀
       if (cur === 'course') c.course = c.course + line;
       else if (cur === 'org') c.org = trim(c.org + ' ' + line);
+      else if (!/^(교육\s*)?이\s*수\s*증$|^수\s*료\s*증$/.test(trim(line))) loose.push(line);
     });
     if (!c.issuer) { var li = lines.filter(function (l) { return /(원장|청장)$/.test(norm(l)); }).pop(); if (li) c.issuer = trim(li).replace(/\s*장$/, ''); }
     if (/^\d+(\.\d+)?$/.test(trim(c.hours))) c.hours = trim(c.hours) + '시간';         // 「교육인정시간 : 1」
@@ -437,6 +445,17 @@ var EDU = (function () {
     if (!c.date && pd.length) c.date = pd[pd.length - 1].t;
     c.dept = trim(c.org).split(' ').filter(Boolean).pop() || '';
     c.sheets = rulesIn(c.course);
+    if (!c.sheets.length) {          // 성인지·통일교육은 아무 과정이나 들을 수 있어 과정명에 교육 이름이 없을 수 있음
+      var all = rulesIn(c.no + ' ' + c.issuer + ' ' + lines.filter(function (l) { return !labelOf(l); }).join(' '));
+      if (all.length === 1) { c.sheets = all; c.why = '과정명 밖의 글자(' + RULES.filter(function (r) { return r.k === all[0]; })[0].label + ')로 판단'; }
+    }
+    KNOWN.forEach(function (kn) {
+      if (!kn.re.test(trim(c.no))) return;
+      if (!c.sheets.length) c.sheets = [kn.k];
+      if (!c.issuer) c.issuer = kn.issuer;
+      if (!c.method) c.method = kn.method;
+      c.why = kn.why;
+    });
     c.lines = lines;
     return c;
   }
@@ -934,7 +953,7 @@ if (typeof module !== 'undefined') module.exports = XW;
         var mem = (!c.sheets.length || !c.issuer || !c.method) && tagsOf(c).length ? '<br><span class="why">고른 값은 이 PC에 기억해, 같은 모양의 이수증에 다음부터 씁니다</span>' : '';
         var unk = c.sheets.filter(function (k) { return !M.sheets.some(function (sh) { return sh.key === k; }); });
         return '<tr><td>' + esc(ce.file) + (ce.page ? ' <span class="why">' + ce.page + '쪽</span>' : '') + '</td><td><b>' + esc(c.name || '?') + '</b> ' + who + '<br><span class="why">' + esc(c.rank) + ' · ' + esc(c.dept) + '</span></td>' +
-          '<td>' + esc(c.course || '(과정 못 읽음)') + '<br>' + ks + sel + (unk.length ? ' <span class="why">서식에 없는 교육: ' + unk.map(function (k) { return esc(RULE[k].label); }).join(', ') + '</span>' : '') +
+          '<td>' + esc(c.course || '(과정 못 읽음)') + '<br>' + ks + (c.why ? ' <span class="why">' + esc(c.why) + '</span>' : '') + sel + (unk.length ? ' <span class="why">서식에 없는 교육: ' + unk.map(function (k) { return esc(RULE[k].label); }).join(', ') + '</span>' : '') +
           '<details><summary>글자 보기</summary><pre>' + esc(ce.lines.join('\n')) + '</pre></details></td>' +
           '<td class="d">' + esc(c.periodText) + '<br>' + esc(c.date) + (c.hours ? '<br><span class="why">' + esc(c.hours) + '</span>' : '') + (c.method ? '<br><span class="why">' + esc(c.method) + '</span>' : '') + mSel + '</td><td>' + esc(c.no) + '<br><span class="why">' + esc(c.issuer) + '</span>' + iSel + mem + '</td></tr>';
       }).join('') + '</tbody></table></div>';
