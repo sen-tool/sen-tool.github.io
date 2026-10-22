@@ -474,6 +474,7 @@ var EDU = (function () {
       if (/^\d{4}\s*년\s*\d{1,2}\s*월\s*\d{1,2}\s*일$/.test(cl) || /^\d{4}[.\-\/]\d{1,2}[.\-\/]\d{1,2}\.?$/.test(cl)) { c.date = datesIn(line)[0].t; cur = null; return; }
       // 날짜 아래 발급기관 (「…원장」 또는 장 없이 「한국양성평등교육진흥원」)
       if (c.date && !c.issuer && /[가-힣]/.test(line) && cl.length <= 30 && /(원|청|부|센터|재단|위원회)$/.test(cl)) { c.issuer = trim(line); cur = null; return; }
+      if (/(교육지원청)\s*교육장$/.test(cl) && c.date && !c.issuer) { c.issuer = trim(line).replace(/\s*교육장$/, ''); cur = null; return; }   // 「○○교육지원청 교육장」
       if (/(원장|청장|교육감|장관|이사장|원\s*장)$/.test(cl) && c.date && !c.issuer) { c.issuer = trim(line).replace(/\s*(원\s*장|장)$/, function (m) { return /원/.test(m) ? '원' : ''; }); cur = null; return; }
       if (pend != null && (cur === 'course' || cur === 'org')) { c[cur] = cur === 'course' ? c[cur] + pend : trim(c[cur] + ' ' + pend); pend = null; }
       // 줄이 넘어간 값 (근무기관 · 연수과정이 길면 다음 줄로 넘어감): 낱말 중간에서 넘어가는 일이 많아 붙여 씀
@@ -481,7 +482,7 @@ var EDU = (function () {
       else if (cur === 'org') c.org = trim(c.org + ' ' + line);
       else if (!/^(교육\s*)?이\s*수\s*증$|^수\s*료\s*증$/.test(trim(line))) loose.push(line);
     });
-    if (!c.issuer) { var li = lines.filter(function (l) { return /(원장|청장)$/.test(norm(l)); }).pop(); if (li) c.issuer = trim(li).replace(/\s*장$/, ''); }
+    if (!c.issuer) { var li = lines.filter(function (l) { return /(원장|청장|교육지원청교육장)$/.test(norm(l)); }).pop(); if (li) c.issuer = trim(li).replace(/\s*교육장$/, '').replace(/\s*장$/, ''); }
     if (/^\d+(\.\d+)?$/.test(trim(c.hours))) c.hours = trim(c.hours) + '시간';         // 「교육인정시간 : 1」
     else if (c.hours) c.hours = hoursIn(c.hours) || trim(c.hours);
     if (!c.hours) c.hours = hoursIn(c.period) || hoursIn(c.course);
@@ -1104,7 +1105,12 @@ if (typeof module !== 'undefined') module.exports = XW;
       if (!p.rank && c.rank) p.rank = c.rank;
       keys.forEach(function (k) {
         var id = p.id + '|' + k, old = rec[id];
-        if (old) { dups.push({ a: old, b: ce, k: k }); if (dateKey(ce.c.date) < dateKey(old.c.date)) return; }
+        if (old) {
+          dups.push({ a: old, b: ce, k: k });
+          // 장애인식개선은 대면교육 우선 (서식 안내: 대면·사이버 둘 다 이수했으면 대면으로 입력), 그 밖은 수료일이 늦은 것
+          if (FACE_FIRST[k] && (old.method === '대면') !== (ce.method === '대면')) { if (old.method === '대면') return; }
+          else if (dateKey(ce.c.date) < dateKey(old.c.date)) return;
+        }
         rec[id] = ce;
       });
     });
@@ -1148,11 +1154,12 @@ if (typeof module !== 'undefined') module.exports = XW;
       return { sh: sh, rows: rows };
     });
     // 손으로 적은 값과 이수증 값이 다른 칸 (그대로 둠) 세기
-    var kept = [];
+    var kept = [], faceFix = [];
     jobs.forEach(function (j) {
       j.rows.forEach(function (row) {
         if (!row.ex || !row.p) return;
         var ce = rec[row.p.id + '|' + j.sh.key]; if (!ce || ce.manual) return;
+        if (FACE_FIRST[j.sh.key] && ce.method === '대면' && row.ex.method && !/대면/.test(row.ex.method)) faceFix.push(row.p.name);
         var cv = { course: ce.c.course, period: ce.c.periodText, no: ce.c.no, date: ce.c.date };
         Object.keys(cv).forEach(function (k) {
           var a = String(row.ex[k] == null ? '' : row.ex[k]).trim(), b = String(cv[k] || '').trim();
@@ -1160,7 +1167,7 @@ if (typeof module !== 'undefined') module.exports = XW;
         });
       });
     });
-    M = { spread: spread, kept: kept, needDept: needDept, only: only, outside: outside, roster: roster, people: people, extras: extras, rec: rec, had: had, dups: dups, noSheet: noSheet, amb: amb, noName: noName, sheets: sheets, jobs: jobs };
+    M = { faceFix: faceFix, spread: spread, kept: kept, needDept: needDept, only: only, outside: outside, roster: roster, people: people, extras: extras, rec: rec, had: had, dups: dups, noSheet: noSheet, amb: amb, noName: noName, sheets: sheets, jobs: jobs };
   }
   function dateKey(t) { var d = EDU.datesIn(t)[0]; return d ? d.y * 10000 + d.m * 100 + d.d : 0; }
   /* 서울특별시교육청교육연수원 법정묶음 과정의 교육내용별 이수인정 시간 (서식에 없는 교육활동침해·학교폭력·학생도박예방은 뺌) */
@@ -1173,6 +1180,7 @@ if (typeof module !== 'undefined') module.exports = XW;
   function bundleOf(ce) { var m = /법정\s*묶음\s*([A-Za-z])/.exec(ce.c.course); return m ? BUNDLES[m[1].toUpperCase()] || null : null; }
   function bundleHours(ce, k) { var b = bundleOf(ce); return b ? b[k] || '' : ''; }
   // 이수시간: 「이수시간 정하기」에 적은 값 > 법정묶음(B·C) 기본값 > 교육 하나짜리 이수증에 적힌 시간
+  var FACE_FIRST = { disabAware: true };       // 대면교육을 먼저 쓰는 교육
   function hoursFor(k, ce) { return (hours[k] || '').trim() || bundleHours(ce, k) || (ce.keys.length === 1 ? ce.c.hours : ''); }
   /* 한 줄에 쓸 값: 이미 적힌 줄은 바꾸는 칸만 (나머지 칸은 원래 셀 그대로), 새 줄은 사람 · 이수증 칸 */
   function rowVals(sh, row, seq) {
@@ -1269,6 +1277,7 @@ if (typeof module !== 'undefined') module.exports = XW;
     var info = [];
     if (M.outside.length) info.push('명단에 없는 사람의 이수증 <b>' + M.outside.length + '장</b>은 뺐습니다: ' + M.outside.slice(0, 6).map(function (ce) { return esc(ce.c.name); }).join(', ') + (M.outside.length > 6 ? ' 외' : '') + ' (우리 부서만 남기기)');
     if (M.spread) info.push('손으로 적어 둔 법정묶음 내용을 같은 사람의 다른 교육 시트 <b>' + M.spread + '곳</b>에도 채웁니다 (빈 칸만, 이수시간은 시트마다 묶음 시간표대로).');
+    if (M.faceFix.length) info.push('장애인식개선교육은 <b>대면교육 우선</b>인데, 대면 이수증이 있는 사람의 줄이 이미 사이버교육으로 적혀 있습니다 (손으로 적은 칸은 그대로 둠): <b>' + M.faceFix.map(esc).join(', ') + '</b> — 서식에서 그 줄을 지우고 다시 만들거나 직접 고치세요.');
     if (M.kept.length) info.push('이미 적어 둔 내용과 이수증이 다른 줄 <b>' + M.kept.length + '개</b>는 적어 둔 내용을 그대로 뒀습니다 (빈 칸만 채움): ' + M.kept.slice(0, 6).map(esc).join(', ') + (M.kept.length > 6 ? ' 외' : ''));
     if (M.only) info.push('우리 부서만 남기기: 시트마다 <b>' + M.roster.length + '명</b>만 순서대로 적고, 다른 사람 줄은 지웁니다 (원래 파일은 그대로).');
     if (M.extras.length) info.push('명단에 없는 이름 <b>' + M.extras.length + '명</b>: ' + M.extras.map(function (p) { return esc(p.name) + (p.rank ? '(' + esc(p.rank) + ')' : ''); }).join(', ') + ' — 이수증 내용으로 명단 아래에 이어 적습니다. 오타면 2번 명단을 고치세요.');
@@ -1278,7 +1287,7 @@ if (typeof module !== 'undefined') module.exports = XW;
     if (M.noSheet.length) info.push('법정교육이 아닌 이수증 <b>' + M.noSheet.length + '장</b>은 뺐습니다: ' + nsNames.slice(0, 4).map(esc).join(', ') + (nsNames.length > 4 ? ' 외' : '') + ' — 법정교육인데 빠졌으면 「읽은 이수증」 맨 아래에서 교육을 고르세요.');
     var noOrg = certs.filter(function (ce) { return ce.keys && ce.keys.length && (!ce.issuer || !ce.method); });
     if (noOrg.length) info.push('교육기관이나 교육방법이 적혀 있지 않은 이수증 <b>' + noOrg.length + '장</b>: ' + noOrg.map(function (ce) { return esc(ce.c.name || ce.file); }).join(', ') + ' — 「읽은 이수증」에서 골라 주면 같은 모양의 이수증은 다음부터 알아서 씁니다.');
-    if (M.dups.length) info.push('같은 사람·같은 교육 이수증이 둘 이상 <b>' + M.dups.length + '건</b> — 수료일이 늦은 것을 씁니다.');
+    if (M.dups.length) info.push('같은 사람·같은 교육 이수증이 둘 이상 <b>' + M.dups.length + '건</b> — 수료일이 늦은 것을 씁니다 (장애인식개선은 대면교육 우선).');
     var noH = ks.filter(function (s) { return !(hours[s.key] || '').trim() && certs.some(function (ce) { return ce.keys && ce.keys.length > 1 && ce.keys.indexOf(s.key) >= 0 && !bundleHours(ce, s.key); }); });
     if (noH.length) info.push('묶음 과정 이수증이 들어간 교육 중 이수시간을 정하지 않은 교육 <b>' + noH.length + '개</b> — 「이수시간 정하기」에 적으면 그 시간으로 채웁니다 (비우면 빈칸).');
     $('needInfo').innerHTML = info.map(function (t) { return '<p class="note">' + t + '</p>'; }).join('');
