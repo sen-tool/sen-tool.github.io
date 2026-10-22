@@ -108,6 +108,8 @@ textarea{font:inherit;font-size:13px;width:100%;flex:1;min-height:140px;border:1
 .fgroup label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--sub)}
 .fgroup input,.fgroup select{font:inherit;font-size:13.5px;padding:5px 8px;border:1px solid var(--rule);border-radius:8px;color:var(--ink)}
 .fgroup textarea{min-height:90px;margin-top:3px}
+.fgroup .ftime{display:flex;align-items:center;gap:4px;margin-top:4px}
+.fgroup .ftime input{flex:1;min-width:0}
 .fgroup label.fnames{display:block}
 .fgroup .fhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 details.badlist{font-weight:400;font-size:12.5px;margin-top:3px}
@@ -445,6 +447,17 @@ var EDU = (function () {
     while ((m = re.exec(String(s || '')))) out.push({ y: +m[1], m: +m[2], d: +m[3], t: ymd(m[1], m[2], m[3]) });
     return out;
   }
+  // 교육기간: 날짜 뒤에 시각(09:00)이 있으면 함께 — 「2026.4.2. 14:00~16:00」, 「2026.4.18. 09:00~2026.4.29. 18:00」
+  function periodWithTime(s) {
+    s = String(s || '');
+    var re = /(\d{4})\s*[.\-\/년]\s*(\d{1,2})\s*[.\-\/월]\s*(\d{1,2})\s*일?\.?\s*(?:\([^)]{1,3}\))?\s*(\d{1,2}:\d{2})?/g, m, ds = [];
+    while ((m = re.exec(s))) ds.push({ t: ymd(m[1], m[2], m[3]), time: m[4] || '' });
+    if (!ds.length) return '';
+    var times = s.match(/\b\d{1,2}:\d{2}\b/g) || [];
+    if (!times.length) return '';                                    // 시각이 없으면 원래 방식
+    if (ds.length >= 2) return ds[0].t + (ds[0].time ? ' ' + ds[0].time : '') + '~' + ds[1].t + (ds[1].time ? ' ' + ds[1].time : '');
+    return ds[0].t + ' ' + times[0] + (times[1] ? '~' + times[1] : '');
+  }
   function hoursIn(s) {
     var m = /(\d+)\s*시간(?:\s*(\d+)\s*분)?/.exec(String(s || ''));
     if (m) return m[1] + '시간' + (m[2] && +m[2] ? m[2] + '분' : '');
@@ -510,7 +523,7 @@ var EDU = (function () {
     if (/\(원격\)|원격|사이버|온라인|이러닝|e-?러닝/i.test(c.course + ' ' + c.kind + ' ' + c.no + ' ' + lines.join(' '))) c.method = '사이버교육';
     else if (/집합|대면|현장/.test(c.course + ' ' + c.kind)) c.method = '대면';
     var pd = datesIn(c.period);
-    c.periodText = pd.length >= 2 ? pd[0].t + '~' + pd[1].t : pd.length ? pd[0].t : trim(String(c.period).replace(/\(.*$/, ''));
+    c.periodText = periodWithTime(c.period) || (pd.length >= 2 ? pd[0].t + '~' + pd[1].t : pd.length ? pd[0].t : trim(String(c.period).replace(/\(.*$/, '')));
     if (!c.date && pd.length) c.date = pd[pd.length - 1].t;
     c.dept = trim(c.org).split(' ').filter(Boolean).pop() || '';
     c.sheets = rulesIn(c.course);
@@ -855,10 +868,12 @@ var XW = (function () {
         var xf = xfs[+sIdx];
         if (!xf) return (cache[sIdx] = sIdx);
         var nx = xf;
-        if (!/<alignment\b[^>]*\bwrapText="(1|true)"/.test(nx)) {
-          if (/<alignment\b/.test(nx)) nx = nx.replace(/<alignment\b([^>]*?)\s*(\/?)>/, function (all, at, sl) { return '<alignment' + at.replace(/\swrapText="[^"]*"/, '') + ' wrapText="1"' + (sl ? '/' : '') + '>'; });
-          else if (/\/>$/.test(nx)) nx = nx.replace(/\s*\/>$/, '><alignment wrapText="1"/></xf>');
-          else nx = nx.replace(/^(<xf\b[^>]*>)/, '$1<alignment wrapText="1"/>');
+        // 정렬: 가로·세로 가운데 + 자동 줄 바꿈 (들여쓰기 등 나머지 정렬 속성은 그대로)
+        var AL = ' horizontal="center" vertical="center" wrapText="1"';
+        if (!/<alignment\b[^>]*\bhorizontal="center"[^>]*\bvertical="center"[^>]*\bwrapText="(1|true)"/.test(nx)) {
+          if (/<alignment\b/.test(nx)) nx = nx.replace(/<alignment\b([^>]*?)\s*(\/?)>/, function (all, at, sl) { return '<alignment' + at.replace(/\s(horizontal|vertical|wrapText)="[^"]*"/g, '') + AL + (sl ? '/' : '') + '>'; });
+          else if (/\/>$/.test(nx)) nx = nx.replace(/\s*\/>$/, '><alignment' + AL + '/></xf>');
+          else nx = nx.replace(/^(<xf\b[^>]*>)/, '$1<alignment' + AL + '/>');
           nx = /\bapplyAlignment="/.test(nx) ? nx.replace(/\bapplyAlignment="[^"]*"/, 'applyAlignment="1"') : nx.replace(/^<xf\b/, '<xf applyAlignment="1"');
         }
         var fid = +(/\bfontId="(\d+)"/.exec(nx) || [0, 0])[1], nf = plainFont(fid);
@@ -1003,12 +1018,12 @@ if (typeof module !== 'undefined') module.exports = XW;
   try { faceMem = JSON.parse(localStorage.getItem('edu-face-v1') || '{}') || {}; } catch (e) { faceMem = {}; }
   function faceRemember(g) {
     if (!g.key) return;
-    faceMem[g.key] = { course: g.course, day: g.day, issuer: g.issuer, hours: g.hours, no: g.no };
+    faceMem[g.key] = { course: g.course, day: g.day, t1: g.t1, t2: g.t2, issuer: g.issuer, hours: g.hours, no: g.no };
     try { localStorage.setItem('edu-face-v1', JSON.stringify(faceMem)); } catch (e) {}
   }
   function faceNew(key) {
     var m = faceMem[key] || {};
-    return { key: key, course: m.course || '', day: m.day || '', issuer: m.issuer || '', hours: m.hours || '', no: m.no || '', names: '' };
+    return { key: key, course: m.course || '', day: m.day || '', t1: m.t1 || '', t2: m.t2 || '', issuer: m.issuer || '', hours: m.hours || '', no: m.no || '', names: '' };
   }
   // 비워 둔 칸의 기본값: 과정명은 교육 이름, 교육기관은 서식 목록의 교육지원청
   function faceDefaults(g) {
@@ -1026,7 +1041,7 @@ if (typeof module !== 'undefined') module.exports = XW;
       return '<div class="fgroup" data-g="' + i + '"><div class="fhead"><b>대면교육 명단 ' + (i + 1) + (g.from ? ' <span class="why">(' + esc(g.from) + ')</span>' : '') + '</b><button type="button" class="plain" data-del="' + i + '">빼기</button></div><div class="fgrid">' +
         '<label>교육<select data-f="key">' + opt(keys, g.key) + '</select></label>' +
         '<label>과정명<input type="text" data-f="course" value="' + esc(g.course) + '" placeholder="비우면 「' + esc(RULE_LABEL(g.key)) + '교육(대면)」"></label>' +
-        '<label>교육 실시일 (교육기간 · 교육수료일)<input type="date" data-f="day" value="' + esc(g.day) + '"></label>' +
+        '<label>교육 실시일 (교육기간 · 교육수료일)<input type="date" data-f="day" value="' + esc(g.day) + '"><span class="ftime"><input type="time" data-f="t1" value="' + esc(g.t1 || '') + '" title="시작 시각 (없으면 비움)">~<input type="time" data-f="t2" value="' + esc(g.t2 || '') + '" title="끝 시각"></span></label>' +
         '<label>교육기관<select data-f="issuer"><option value="">비우면 교육지원청</option>' + opt(orgs.map(function (o) { return [o, o]; }), g.issuer) + '</select></label>' +
         '<label>이수시간<input type="text" data-f="hours" value="' + esc(g.hours) + '" placeholder="예: 2시간"></label>' +
         '<label>이수 공문 (이수증번호 칸)<input type="text" data-f="no" value="' + esc(g.no) + '" placeholder="예: 행정지원과-5049(2025. 4. 2.)"></label></div>' +
@@ -1160,8 +1175,13 @@ if (typeof module !== 'undefined') module.exports = XW;
     });
     var no = /([가-힣A-Za-z]+(?:과|팀|실|국|센터|지원청))\s*-\s*(\d+)\s*\(\s*(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})\s*\.?\s*\)/.exec(txt);
     if (no) info.no = no[1] + '-' + no[2] + '(' + no[3] + '. ' + (+no[4]) + '. ' + (+no[5]) + '.)';
-    var dm = /교육\s*(?:일시|일자|기간|일)\s*[:：]?\s*(\d{4})\s*[.\-년]\s*(\d{1,2})\s*[.\-월]\s*(\d{1,2})/.exec(txt);
-    if (dm) info.day = dm[1] + '-' + ('0' + dm[2]).slice(-2) + '-' + ('0' + dm[3]).slice(-2);
+    var dm = /교육\s*(?:일시|일자|기간|일)\s*[:：]?\s*(\d{4})\s*[.\-년]\s*(\d{1,2})\s*[.\-월]\s*(\d{1,2})([^\n]*)/.exec(txt);
+    if (dm) {
+      info.day = dm[1] + '-' + ('0' + dm[2]).slice(-2) + '-' + ('0' + dm[3]).slice(-2);
+      var tm = (dm[4] || '').match(/\b\d{1,2}:\d{2}\b/g) || [];
+      var hh = function (t) { var p = t.split(':'); return ('0' + p[0]).slice(-2) + ':' + p[1]; };
+      if (tm[0]) info.t1 = hh(tm[0]); if (tm[1]) info.t2 = hh(tm[1]);
+    }
     info.course = courseFrom(lines);
     return { lines: out, info: info };
   }
@@ -1181,6 +1201,7 @@ if (typeof module !== 'undefined') module.exports = XW;
     if (info.no) g.no = info.no;
     if (info.course) g.course = info.course;
     if (info.day) g.day = info.day;
+    if (info.t1) { g.t1 = info.t1; g.t2 = info.t2 || ''; }
     g.from = fileName;
     faceGroups.push(g);
     $('faceBox').open = true;
@@ -1255,6 +1276,7 @@ if (typeof module !== 'undefined') module.exports = XW;
     faceGroups.forEach(function (g, gi) {
       if (!g.key || !have[g.key]) return;
       var d = dayText(g.day), df = faceDefaults(g), list = EDU.parseRoster(g.names);
+      var dp = d && g.t1 ? d + ' ' + g.t1 + (g.t2 ? '~' + g.t2 : '') : d;     // 교육기간은 시각까지, 수료일은 날짜만
       if (list.length) {
         var blank = [];
         if (!g.day) blank.push('교육 실시일(교육기간·수료일)');
@@ -1269,7 +1291,7 @@ if (typeof module !== 'undefined') module.exports = XW;
         if (m.st === 'ok' && dA && dB && dA.indexOf(dB) < 0 && dB.indexOf(dA) < 0) m = { st: 'none' };
         if (m.st !== 'ok') { var lab = pp.name + (pp.dept ? '(' + pp.dept + ')' : ''); if (faceMiss.indexOf(lab) < 0) faceMiss.push(lab); return; }
         rec[m.p.id + '|' + g.key] = { id: 'f' + gi + '_' + pi, face: true, file: '대면교육 명단 ' + (gi + 1), keys: [g.key], issuer: df.issuer, method: '대면', lines: [], person: m.p,
-          c: { name: pp.name, rank: pp.rank, dept: pp.dept, org: pp.dept, course: df.course, periodText: d, period: d, method: '대면', issuer: df.issuer, no: g.no, date: d, hours: g.hours, sheets: [g.key] } };
+          c: { name: pp.name, rank: pp.rank, dept: pp.dept, org: pp.dept, course: df.course, periodText: dp, period: dp, method: '대면', issuer: df.issuer, no: g.no, date: d, hours: g.hours, sheets: [g.key] } };
         faceDone++;
       });
     });
