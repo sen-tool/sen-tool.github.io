@@ -642,7 +642,7 @@ var EDU = (function () {
     // 이수증 소속에 과·팀 이름이 있는데 그 사람 부서와 다르면 같은 이름의 다른 사람
     var toks = String(cert.org || '').split(/\s+/).map(norm).filter(function (t) { return t.length >= 3 && /(과|팀|센터|실)$/.test(t); });
     if (toks.length) cand = cand.filter(function (p) { var d = norm(p.dept); return !d || toks.some(function (t) { return t.indexOf(d) >= 0 || d.indexOf(t) >= 0; }); });
-    if (cand.length === 1) return { st: 'ok', p: cand[0] };
+    if (cand.length === 1) return { st: 'ok', p: cand[0], byDept: toks.length > 0 };
     if (!cand.length) return { st: 'none' };
     var by = cand.filter(function (p) { return p.rank && norm(p.rank) === norm(cert.rank); });
     if (by.length !== 1) by = cand.filter(function (p) { return p.dept && norm(cert.org).indexOf(norm(p.dept)) >= 0; });
@@ -1006,6 +1006,7 @@ if (typeof module !== 'undefined') module.exports = XW;
   }
   function chosen(ce, f) {
     if (pick[ce.id] && pick[ce.id][f]) return pick[ce.id][f];
+    if (f === 'who') return ce.whoAuto || '';
     var t = tagsOf(ce.c);
     for (var i = 0; i < t.length; i++) if (learn[t[i]] && learn[t[i]][f]) return learn[t[i]][f];
     return '';
@@ -1242,7 +1243,7 @@ if (typeof module !== 'undefined') module.exports = XW;
     var only = $('onlyRoster').checked && (pasted.length > 0 || depts.length > 0);
     var roster = base.map(function (p, i) { return { id: 'r' + i, dept: p.dept, rank: p.rank, name: p.name }; });
     var people = roster.slice(), extras = [];
-    var rec = {}, dups = [], noSheet = [], amb = [], noName = [], have = {}, outside = [];
+    var rec = {}, dups = [], noSheet = [], amb = [], noName = [], have = {}, outside = [], notOurs = [];
     (tpl ? tpl.sheets : []).forEach(function (sh) { if (sh.key) have[sh.key] = 1; });
     certs.forEach(function (ce) {
       var c = ce.c;
@@ -1259,7 +1260,23 @@ if (typeof module !== 'undefined') module.exports = XW;
       if (!keys.length) { noSheet.push(ce); ce.person = null; return; }
       var m = EDU.matchPerson(people, c);
       if (m.st === 'noname') { noName.push(ce); ce.person = null; return; }
-      if (m.st === 'ambiguous') { amb.push(ce); ce.person = null; return; }
+      // 누구 것인지 모르면 「읽은 이수증」에서 고르게 함: 명단에 같은 이름이 여럿이거나,
+      // 이수증에 부서가 없는데 서식의 다른 부서에도 같은 이름이 있을 때 (직급이 한쪽과만 같으면 직급으로 가림)
+      ce.whoOpts = null; ce.whoOdd = null; ce.whoAuto = '';
+      if (m.st === 'ambiguous') ce.whoOpts = m.cand;
+      else if (m.st === 'ok' && !m.byDept) {
+        var odd = fr0.filter(function (q) { return norm(q.name) === norm(m.p.name) && !sameDept(q.dept, m.p.dept); });
+        var rk = norm(c.rank), oddRank = rk && odd.some(function (q) { return norm(q.rank) === rk; });
+        if (odd.length && rk && rk === norm(m.p.rank) && !oddRank) odd = [];
+        if (odd.length) { ce.whoOpts = [m.p]; ce.whoOdd = odd; ce.whoAuto = oddRank && rk !== norm(m.p.rank) ? 'out' : ''; }   // 직급이 다른 부서 사람과 같으면 처음엔 뺌
+      }
+      if (ce.whoOpts) {
+        var w = (pick[ce.id] || {}).who || ce.whoAuto || '';
+        var wp = ce.whoOpts.filter(function (q) { return q.id === w; })[0];
+        if (w === 'out') { notOurs.push(ce); ce.person = null; ce.outside = true; return; }
+        if (!wp) { amb.push(ce); ce.person = null; return; }
+        m = { st: 'ok', p: wp };
+      }
       var p = m.p;
       if (m.st === 'none' && only) { outside.push(ce); ce.person = null; ce.outside = true; return; }   // 명단만 남길 때는 명단 밖 사람 이수증은 뺌
       if (m.st === 'none') { p = { id: 'x' + (extras.length), dept: c.dept, rank: c.rank, name: c.name, extra: true }; extras.push(p); people.push(p); }
@@ -1355,7 +1372,7 @@ if (typeof module !== 'undefined') module.exports = XW;
         });
       });
     });
-    M = { faceRepl: faceRepl, faceBlank: faceBlank, faceDone: faceDone, faceMiss: faceMiss, faceFix: faceFix, spread: spread, kept: kept, needDept: needDept, only: only, outside: outside, roster: roster, people: people, extras: extras, rec: rec, had: had, dups: dups, noSheet: noSheet, amb: amb, noName: noName, sheets: sheets, jobs: jobs };
+    M = { notOurs: notOurs, faceRepl: faceRepl, faceBlank: faceBlank, faceDone: faceDone, faceMiss: faceMiss, faceFix: faceFix, spread: spread, kept: kept, needDept: needDept, only: only, outside: outside, roster: roster, people: people, extras: extras, rec: rec, had: had, dups: dups, noSheet: noSheet, amb: amb, noName: noName, sheets: sheets, jobs: jobs };
   }
   function dateKey(t) { var d = EDU.datesIn(t)[0]; return d ? d.y * 10000 + d.m * 100 + d.d : 0; }
   /* 서울특별시교육청교육연수원 법정묶음 과정의 교육내용별 이수인정 시간 (서식에 없는 교육활동침해·학교폭력·학생도박예방은 뺌) */
@@ -1475,7 +1492,8 @@ if (typeof module !== 'undefined') module.exports = XW;
     if (M.kept.length) info.push('이미 적어 둔 내용과 이수증이 다른 줄 <b>' + M.kept.length + '개</b>는 적어 둔 내용을 그대로 뒀습니다 (빈 칸만 채움): ' + M.kept.slice(0, 6).map(esc).join(', ') + (M.kept.length > 6 ? ' 외' : ''));
     if (M.only) info.push('우리 부서만 남기기: 시트마다 <b>' + M.roster.length + '명</b>만 순서대로 적고, 다른 사람 줄은 지웁니다 (원래 파일은 그대로).');
     if (M.extras.length) info.push('명단에 없는 이름 <b>' + M.extras.length + '명</b>: ' + M.extras.map(function (p) { return esc(p.name) + (p.rank ? '(' + esc(p.rank) + ')' : ''); }).join(', ') + ' — 이수증 내용으로 명단 아래에 이어 적습니다. 오타면 2번 명단을 고치세요.');
-    if (M.amb.length) info.push('명단에 같은 이름이 여럿이라 누구인지 모르는 이수증 <b>' + M.amb.length + '장</b>: ' + M.amb.map(function (ce) { return esc(ce.c.name); }).join(', ') + ' — 명단에 직급을 적으면 직급으로 가립니다.');
+    if (M.amb.length) info.push('같은 이름이 여럿이라 누구 것인지 모르는 이수증 <b>' + M.amb.length + '장</b>: ' + M.amb.map(function (ce) { return esc(ce.c.name) + (ce.whoOdd ? ' (이수증에 부서 없음 · 서식 ' + ce.whoOdd.map(function (q) { return esc(q.dept); }).join('·') + '에도 같은 이름)' : ''); }).join(', ') + ' — 「읽은 이수증」에서 누구 것인지 고르세요. 고르기 전에는 넣지 않습니다.');
+    if (M.notOurs.length) info.push('다른 부서의 같은 이름 사람 것으로 보고 뺀 이수증 <b>' + M.notOurs.length + '장</b>: ' + M.notOurs.slice(0, 6).map(function (ce) { return esc(ce.c.name); }).join(', ') + (M.notOurs.length > 6 ? ' 외' : '') + ' — 우리 부서 사람 것이면 「읽은 이수증」에서 바꾸세요.');
     if (M.noName.length) info.push('성명을 읽지 못한 이수증 <b>' + M.noName.length + '장</b>: ' + M.noName.map(function (ce) { return esc(ce.file); }).join(', '));
     var nsNames = []; M.noSheet.forEach(function (ce) { var t = ce.c.course || ce.file; if (nsNames.indexOf(t) < 0) nsNames.push(t); });
     if (M.noSheet.length) info.push('법정교육이 아닌 이수증 <b>' + M.noSheet.length + '장</b>은 뺐습니다: ' + nsNames.slice(0, 4).map(esc).join(', ') + (nsNames.length > 4 ? ' 외' : '') + ' — 법정교육인데 빠졌으면 「읽은 이수증」 맨 아래에서 교육을 고르세요.');
@@ -1536,7 +1554,8 @@ if (typeof module !== 'undefined') module.exports = XW;
       '<input type="search" id="certQ" placeholder="이름·과정·파일 찾기" value="' + esc(certQuery) + '"></div>';
     return bar + '<div class="tbl"><table class="list" id="certTable"><thead><tr><th>파일</th><th>이름</th><th>연수 과정 → 들어갈 교육</th><th>기간 · 수료일</th><th>이수증번호 · 기관</th></tr></thead><tbody>' +
       certs.filter(function (ce) { return ce.keys.length; }).concat(certs.filter(function (ce) { return !ce.keys.length; })).map(function (ce) {
-        var c = ce.c, who = !ce.keys.length ? '<span class="tag gray">뺌 · 법정교육 아님</span>' : ce.outside ? '<span class="tag gray">뺌 · 명단에 없음</span>' : ce.person ? (ce.person.extra ? '<span class="tag warn">명단에 없음</span>' : '<span class="tag ok">명단</span>') : M.amb.indexOf(ce) >= 0 ? '<span class="tag warn">동명이인</span>' : '<span class="tag warn">성명 없음</span>';
+        var c = ce.c, who = !ce.keys.length ? '<span class="tag gray">뺌 · 법정교육 아님</span>' : ce.whoOpts ? (ce.person ? '<span class="tag ok">명단</span>' : ce.outside ? '<span class="tag gray">뺌 · 다른 사람</span>' : '<span class="tag warn">동명이인</span>') +
+          '<br>' + selectOf(ce, 'who', '누구 것인지 고르기…', ce.whoOpts.map(function (q) { return [q.id, [q.dept, q.rank, q.name].filter(Boolean).join(' ')]; }).concat([['out', '다른 부서 같은 이름 사람 — 넣지 않음']])) : ce.outside ? '<span class="tag gray">뺌 · 명단에 없음</span>' : ce.person ? (ce.person.extra ? '<span class="tag warn">명단에 없음</span>' : '<span class="tag ok">명단</span>') : M.amb.indexOf(ce) >= 0 ? '<span class="tag warn">동명이인</span>' : '<span class="tag warn">성명 없음</span>';
         // 교육이 많으면(묶음 과정) 「교육 13개」로 줄여 보여 줌 (마우스를 올리면 목록)
         var labels = ce.keys.map(function (k) { return RULE[k] ? RULE[k].label : k; });
         var ks = !labels.length ? '' : labels.length <= 3 ? labels.map(function (l) { return '<span class="tag gray">' + esc(l) + '</span>'; }).join(' ') :
@@ -1618,7 +1637,7 @@ if (typeof module !== 'undefined') module.exports = XW;
     if (id && f) {
       var ce = certs.filter(function (x) { return String(x.id) === id; })[0], v = e.target.value;
       pick[id] = pick[id] || {}; pick[id][f] = v;
-      if (ce) tagsOf(ce.c).forEach(function (t) { learn[t] = learn[t] || {}; if (v) learn[t][f] = v; else delete learn[t][f]; });
+      if (ce && f !== 'who') tagsOf(ce.c).forEach(function (t) { learn[t] = learn[t] || {}; if (v) learn[t][f] = v; else delete learn[t][f]; });
       saveLearn(); compute(); render();
     }
   });
