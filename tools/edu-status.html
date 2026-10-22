@@ -218,6 +218,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
     <div id="faceGroups"></div>
     <button type="button" id="faceAdd">+ 대면교육 명단 추가</button>
     <p class="hint" id="faceMsg"></p>
+    <input type="file" id="faceFile" accept=".xlsx,.xls,.xlsm,.csv" class="hidden">
   </details>
 </section>
 
@@ -1028,7 +1029,7 @@ if (typeof module !== 'undefined') module.exports = XW;
         '<label>교육기관<select data-f="issuer"><option value="">비우면 교육지원청</option>' + opt(orgs.map(function (o) { return [o, o]; }), g.issuer) + '</select></label>' +
         '<label>이수시간<input type="text" data-f="hours" value="' + esc(g.hours) + '" placeholder="예: 2시간"></label>' +
         '<label>이수 공문 (이수증번호 칸)<input type="text" data-f="no" value="' + esc(g.no) + '" placeholder="예: 행정지원과-5049(2025. 4. 2.)"></label></div>' +
-        '<label class="fnames" style="margin-top:8px">이수자 명단 — 공문 명단의 <b>부서명 · 직위 · 이름</b>을 복사해 붙여 넣기 <span class="why">(' + n + '명)</span><textarea data-f="names" spellcheck="false" placeholder="행정지원과	주무관	홍길동">' + esc(g.names) + '</textarea></label></div>';
+        '<label class="fnames" style="margin-top:8px">이수자 명단 — 공문 명단의 <b>부서명 · 직위 · 이름</b>을 복사해 붙여 넣거나 <button type="button" class="plain" data-file="' + i + '">명단 엑셀 파일 넣기</button> <span class="why">(' + n + '명)</span><textarea data-f="names" spellcheck="false" placeholder="행정지원과	주무관	홍길동">' + esc(g.names) + '</textarea></label></div>';
     }).join('');
   }
   function dayText(v) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ''); return m ? (+m[1]) + '.' + (+m[2]) + '.' + (+m[3]) + '.' : ''; }
@@ -1234,11 +1235,12 @@ if (typeof module !== 'undefined') module.exports = XW;
       return { sh: sh, rows: rows };
     });
     // 손으로 적은 값과 이수증 값이 다른 칸 (그대로 둠) 세기
-    var kept = [], faceFix = [];
+    var kept = [], faceFix = [], faceRepl = [];
     jobs.forEach(function (j) {
       j.rows.forEach(function (row) {
         if (!row.ex || !row.p) return;
         var ce = rec[row.p.id + '|' + j.sh.key]; if (!ce || ce.manual) return;
+        if (ce.face) { if ((row.ex.course || row.ex.date || row.ex.no) && !/대면/.test(String(row.ex.method || ''))) faceRepl.push(row.p.name + ' · ' + short(j.sh)); return; }
         if (FACE_FIRST[j.sh.key] && ce.method === '대면' && row.ex.method && !/대면/.test(row.ex.method)) faceFix.push(row.p.name);
         var cv = { course: ce.c.course, period: ce.c.periodText, no: ce.c.no, date: ce.c.date };
         Object.keys(cv).forEach(function (k) {
@@ -1247,7 +1249,7 @@ if (typeof module !== 'undefined') module.exports = XW;
         });
       });
     });
-    M = { faceBlank: faceBlank, faceDone: faceDone, faceMiss: faceMiss, faceFix: faceFix, spread: spread, kept: kept, needDept: needDept, only: only, outside: outside, roster: roster, people: people, extras: extras, rec: rec, had: had, dups: dups, noSheet: noSheet, amb: amb, noName: noName, sheets: sheets, jobs: jobs };
+    M = { faceRepl: faceRepl, faceBlank: faceBlank, faceDone: faceDone, faceMiss: faceMiss, faceFix: faceFix, spread: spread, kept: kept, needDept: needDept, only: only, outside: outside, roster: roster, people: people, extras: extras, rec: rec, had: had, dups: dups, noSheet: noSheet, amb: amb, noName: noName, sheets: sheets, jobs: jobs };
   }
   function dateKey(t) { var d = EDU.datesIn(t)[0]; return d ? d.y * 10000 + d.m * 100 + d.d : 0; }
   /* 서울특별시교육청교육연수원 법정묶음 과정의 교육내용별 이수인정 시간 (서식에 없는 교육활동침해·학교폭력·학생도박예방은 뺌) */
@@ -1276,8 +1278,10 @@ if (typeof module !== 'undefined') module.exports = XW;
     if (ce) {
       // 이수증에서 읽은 값만 씀: 못 읽은 칸(빈 값)은 이미 적어 둔 값을 지우지 않고 그대로 둠
       // 손으로 이미 적어 둔 칸은 절대 덮어쓰지 않음: 이수증 값은 비어 있는 칸에만 넣음
-      var c = ce.c, filled = function (k) { return ex && String(ex[k] == null ? '' : ex[k]).trim() !== ''; };
-      var putIf = function (k, val) { if (filled(k)) return; if (String(val == null ? '' : val).trim() !== '') put(k, val); else if (!ex) put(k, ''); };
+      // 대면교육 명단(공문)은 확실한 근거라, 그 교육 칸에 사이버교육 등이 적혀 있어도 대면 명단 내용으로 바꿈 (이미 「대면」으로 적힌 줄은 그대로)
+      var faceOver = ce.face && ex && !/대면/.test(String(ex.method || ''));
+      var c = ce.c, filled = function (k) { return !faceOver && ex && String(ex[k] == null ? '' : ex[k]).trim() !== ''; };
+      var putIf = function (k, val) { if (filled(k)) return; if (String(val == null ? '' : val).trim() !== '') put(k, val); else if (!ex || faceOver) put(k, ''); };
       putIf('course', c.course); putIf('period', c.periodText); putIf('method', ce.method); putIf('hours', hoursFor(sh.key, ce));
       putIf('issuer', EDU.orgName(ce.issuer, sh.orgs)); putIf('no', c.no); putIf('date', c.date);
     }
@@ -1358,6 +1362,7 @@ if (typeof module !== 'undefined') module.exports = XW;
     if (M.outside.length) info.push('명단에 없는 사람의 이수증 <b>' + M.outside.length + '장</b>은 뺐습니다: ' + M.outside.slice(0, 6).map(function (ce) { return esc(ce.c.name); }).join(', ') + (M.outside.length > 6 ? ' 외' : '') + ' (우리 부서만 남기기)');
     if (M.spread) info.push('손으로 적어 둔 법정묶음 내용을 같은 사람의 다른 교육 시트 <b>' + M.spread + '곳</b>에도 채웁니다 (빈 칸만, 이수시간은 시트마다 묶음 시간표대로).');
     if (M.faceDone) info.push('대면교육 이수자 명단으로 <b>' + M.faceDone + '명</b>을 대면으로 채웁니다.');
+    if (M.faceRepl.length) info.push('대면교육 명단에 있어 원래 적혀 있던(사이버 등) 내용을 <b>대면 명단 내용으로 바꾼 줄 ' + M.faceRepl.length + '개</b>: ' + M.faceRepl.slice(0, 8).map(esc).join(', ') + (M.faceRepl.length > 8 ? ' 외' : ''));
     if (M.faceBlank.length) info.push('대면교육 명단에서 비워 둔 칸은 결과에도 빈칸으로 둡니다: ' + M.faceBlank.map(esc).join(' / ') + ' (과정명은 교육 이름, 교육기관은 서식 목록의 교육지원청으로 채움)');
     if (M.faceMiss.length) info.push('대면교육 명단에 있지만 우리 부서 명단에서 찾지 못한 사람 <b>' + M.faceMiss.length + '명</b>: ' + M.faceMiss.slice(0, 8).map(esc).join(', ') + (M.faceMiss.length > 8 ? ' 외' : '') + ' (다른 부서이거나 이름이 다름)');
     if (M.faceFix.length) info.push('장애인식개선교육은 <b>대면교육 우선</b>인데, 대면 이수증이 있는 사람의 줄이 이미 사이버교육으로 적혀 있습니다 (손으로 적은 칸은 그대로 둠): <b>' + M.faceFix.map(esc).join(', ') + '</b> — 서식에서 그 줄을 지우고 다시 만들거나 직접 고치세요.');
@@ -1538,7 +1543,44 @@ if (typeof module !== 'undefined') module.exports = XW;
   }
   $('faceGroups').addEventListener('input', faceInput);
   $('faceGroups').addEventListener('change', faceInput);
-  $('faceGroups').addEventListener('click', function (e) { var b = e.target.closest('[data-del]'); if (b) { faceGroups.splice(+b.getAttribute('data-del'), 1); faceRender(); refresh(); } });
+  $('faceGroups').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-del]'); if (b) { faceGroups.splice(+b.getAttribute('data-del'), 1); faceRender(); refresh(); return; }
+    var fb = e.target.closest('[data-file]'); if (fb) { e.preventDefault(); faceFileFor = +fb.getAttribute('data-file'); $('faceFile').click(); }
+  });
+  // 명단 엑셀(공문 첨부)에서 부서명 · 직위 · 이름 칸을 찾아 읽기
+  var faceFileFor = -1;
+  function readNameList(wb) {
+    var out = [];
+    wb.SheetNames.forEach(function (sn) {
+      var rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: false, defval: '' });
+      for (var h = 0; h < Math.min(rows.length, 30); h++) {
+        var hdr = rows[h].map(function (v) { return norm(v); });
+        var ci = hdr.findIndex(function (v) { return /^(이름|성명)$/.test(v); });
+        if (ci < 0) continue;
+        var di = hdr.findIndex(function (v) { return /^(부서명?|소속|소속부서|기관)$/.test(v); });
+        var ri = hdr.findIndex(function (v) { return /^(직위|직급|직렬)$/.test(v); });
+        for (var r = h + 1; r < rows.length; r++) {
+          var nm = String(rows[r][ci] || '').trim();
+          if (!nm || /^(계|합계|소계)$/.test(norm(nm))) continue;
+          out.push([di >= 0 ? rows[r][di] : '', ri >= 0 ? rows[r][ri] : '', nm].map(function (x) { return String(x).replace(/\s+/g, ' ').trim(); }).join('\t'));
+        }
+        break;
+      }
+    });
+    return out;
+  }
+  $('faceFile').onchange = function () {
+    var f = this.files[0], gi = faceFileFor; this.value = '';
+    if (!f || !faceGroups[gi]) return;
+    readBuf(f).then(function (buf) {
+      var wb = null; try { wb = XLSX.read(new Uint8Array(buf), { type: 'array' }); } catch (er) {}
+      var lines = wb ? readNameList(wb) : [];
+      if (!lines.length) { $('faceMsg').textContent = f.name + ' — 「이름(성명)」 칸을 찾지 못했습니다. 명단을 복사해 붙여 넣어 주세요.'; return; }
+      faceGroups[gi].names = (faceGroups[gi].names.trim() ? faceGroups[gi].names.trim() + '\n' : '') + lines.join('\n');
+      $('faceMsg').textContent = f.name + '에서 ' + lines.length + '명을 읽었습니다.';
+      faceRender(); refresh();
+    });
+  };
   function saveDepts() { deptTouched = true; savedDept = chosenDepts(); try { localStorage.setItem('edu-depts-v2', JSON.stringify(savedDept)); } catch (e) {} refresh(); }
   $('deptPick').addEventListener('change', function (e) { if (e.target.type === 'checkbox') { sel[e.target.value] = e.target.checked; saveDepts(); } });
   $('deptPick').addEventListener('click', function (e) {
