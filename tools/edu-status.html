@@ -1220,7 +1220,7 @@ if (typeof module !== 'undefined') module.exports = XW;
   }
   // 공문 PDF 글자에서 서식에 적힌 사람 이름을 찾아 명단으로, 공문 번호·교육 일자도 찾아봄
   function nameListFromText(lines) {
-    var txt = lines.join('\n'), flat = norm(txt), out = [], info = {};
+    var txt = lines.join('\n'), flat = norm(txt), out = [];
     var people = formRoster().concat(EDU.parseRoster($('roster').value)), seenN = {};
     people.forEach(function (p) {
       var n = norm(p.name);
@@ -1237,9 +1237,15 @@ if (typeof module !== 'undefined') module.exports = XW;
       }
       seenN[n] = 1; out.push([p.dept || '', p.rank || '', p.name].join('\t'));
     });
+    var info = infoFromText(lines);
+    return { lines: out, info: info };
+  }
+  // 공문 글자에서 공문 번호 · 교육 일자와 시간 · 과정명
+  function infoFromText(lines) {
+    var txt = lines.join('\n'), info = {};
     var no = /([가-힣A-Za-z]+(?:과|팀|실|국|관|센터|지원청))\s*-\s*(\d+)\s*\(\s*(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})\s*\.?\s*\)/.exec(txt);
     if (no) info.no = no[1] + '-' + no[2] + '(' + no[3] + '. ' + (+no[4]) + '. ' + (+no[5]) + '.)';
-    var dm = /교육\s*(?:일시|일자|기간|일)\s*[:：]?\s*(\d{4})\s*[.\-년]\s*(\d{1,2})\s*[.\-월]\s*(\d{1,2})([^\n]*)/.exec(txt);
+    var dm = /(?:교육\s*(?:일시|일자|기간|일)|일\s*시)\s*[:：]?\s*(\d{4})\s*[.\-년]\s*(\d{1,2})\s*[.\-월]\s*(\d{1,2})([^\n]*)/.exec(txt);
     if (dm) {
       info.day = dm[1] + '-' + ('0' + dm[2]).slice(-2) + '-' + ('0' + dm[3]).slice(-2);
       var tm = (dm[4] || '').match(/\b\d{1,2}:\d{2}\b/g) || [];
@@ -1247,7 +1253,7 @@ if (typeof module !== 'undefined') module.exports = XW;
       if (tm[0]) info.t1 = hh(tm[0]); if (tm[1]) info.t2 = hh(tm[1]);
     }
     info.course = courseFrom(lines);
-    return { lines: out, info: info };
+    return info;
   }
   // 제목에서 과정명: 「2026년 장애인식개선 교육 이수자 알림」 → 「2026년 장애인식개선 교육」
   function courseFrom(lines) {
@@ -1746,35 +1752,48 @@ if (typeof module !== 'undefined') module.exports = XW;
   function namesFromWorkbook(wb, fileName) {
     var first = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]).split('\n').slice(0, 6).map(function (l) { return l.replace(/,+/g, ' ').trim(); });
     var head = fileName + ' ' + wb.SheetNames.join(' ') + ' ' + first.join(' ');
-    var lines = readNameList(wb), info = { course: courseFrom(first) };
-    if (!lines.length) {
-      var all = [];
-      wb.SheetNames.forEach(function (sn) {
-        XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: false, defval: '' }).forEach(function (row) { var t = row.join(' ').replace(/\s+/g, ' ').trim(); if (t) all.push(t); });
-      });
-      var r = nameListFromText(all);
-      lines = r.lines; info = r.info; head += ' ' + all.slice(0, 10).join(' ');
+    var all = [];
+    wb.SheetNames.forEach(function (sn) {
+      XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: false, defval: '' }).forEach(function (row) { var t = row.join(' ').replace(/\s+/g, ' ').trim(); if (t) all.push(t); });
+    });
+    // 표 위·아래 글자(「□ 일시: 2026. 5. 6.(수) 09:40~10:40」, 공문 번호)에서 공문 정보, 표의 이수교육명·교육일시 칸이 있으면 그 값
+    var lines = readNameList(wb), info = infoFromText(all);
+    if (lines.length) {
+      if (lines.course) info.course = lines.course;
+      if (!info.day && lines.day) info.day = lines.day;
+    } else {
+      lines = nameListFromText(all).lines;   // 이름 칸을 못 찾으면 셀 글자에서 서식에 적힌 이름을 찾음
+      head += ' ' + all.slice(0, 10).join(' ');
     }
     return { lines: lines, info: info, head: head };
   }
   function readNameList(wb) {
-    var out = [];
+    var out = [], meta = { course: {}, day: '' };
     wb.SheetNames.forEach(function (sn) {
       var rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: false, defval: '' });
       for (var h = 0; h < Math.min(rows.length, 30); h++) {
         var hdr = rows[h].map(function (v) { return norm(v); });
-        var ci = hdr.findIndex(function (v) { return /^(이름|성명)([(（].*)?$/.test(v); });   // 「성명(서명)」 같은 칸도
+        // 「성명(서명)」「이수자명단」「참석자 성명」 같은 칸도
+        var ci = hdr.findIndex(function (v) { return /^(이름|성명|이수자(명단|명|성명)?|직원명|대상자(명|성명)?|교육생(명|성명)?|참석자(명|성명)?|수강자(명|성명)?)([(（].*)?$/.test(v); });
         if (ci < 0) continue;
         var di = hdr.findIndex(function (v) { return /^(부서명?|소속|소속부서|소속부서명|기관)([(（].*)?$/.test(v); });
         var ri = hdr.findIndex(function (v) { return /^(직위|직급|직렬)$/.test(v); });
+        var ki = hdr.findIndex(function (v) { return /^(이수교육명|교육명|과정명|교육과정명?|연수명|연수과정명?)$/.test(v); });
+        var ti = hdr.findIndex(function (v) { return /^(교육일시|교육일자|교육일|이수일자?|완료일|수료일)/.test(v); });
+        var mi = hdr.findIndex(function (v) { return /^(이수방법|교육방법|방법)$/.test(v); });
         for (var r = h + 1; r < rows.length; r++) {
           var nm = String(rows[r][ci] || '').trim();
           if (!nm || /^(계|합계|소계)$/.test(norm(nm))) continue;
+          if (mi >= 0 && norm(rows[r][mi]) === '비대면') continue;      // 비대면으로 들은 사람은 대면 명단에서 뺌
+          if (ki >= 0 && rows[r][ki]) { var cn = String(rows[r][ki]).replace(/\s+/g, ' ').trim(); meta.course[cn] = (meta.course[cn] || 0) + 1; }
+          if (ti >= 0 && !meta.day) { var dd = /(\d{4})\s*[.\-년\/]\s*(\d{1,2})\s*[.\-월\/]\s*(\d{1,2})/.exec(String(rows[r][ti])); if (dd) meta.day = dd[1] + '-' + ('0' + dd[2]).slice(-2) + '-' + ('0' + dd[3]).slice(-2); }
           out.push([di >= 0 ? rows[r][di] : '', ri >= 0 ? rows[r][ri] : '', nm].map(function (x) { return String(x).replace(/\s+/g, ' ').trim(); }).join('\t'));
         }
         break;
       }
     });
+    var cs = Object.keys(meta.course).sort(function (a, b) { return meta.course[b] - meta.course[a]; });
+    out.course = cs[0] || ''; out.day = meta.day;
     return out;
   }
   // 명단 파일 하나 읽기: 이름 줄 · 교육을 짐작할 글자(파일 이름·제목) · 공문 정보
