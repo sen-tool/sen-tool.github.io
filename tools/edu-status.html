@@ -1146,6 +1146,16 @@ if (typeof module !== 'undefined') module.exports = XW;
     people.forEach(function (p) {
       var n = norm(p.name);
       if (n.length < 2 || seenN[n] || flat.indexOf(n) < 0) return;
+      // 그 이름이 있는 줄에 다른 부서 이름만 적혀 있으면 (다른 부서의 같은 이름) 빼기
+      var d = norm(p.dept);
+      if (d) {
+        var hits = lines.filter(function (l) { return norm(l).indexOf(n) >= 0; });
+        var ok = hits.some(function (l) {
+          var nl = norm(l); if (nl.indexOf(d) >= 0) return true;
+          return !/[가-힣]{2,}(과|팀|실|국|센터|지원청|학교)/.test(String(l).replace(p.name, ''));
+        });
+        if (!ok) return;
+      }
       seenN[n] = 1; out.push([p.dept || '', p.rank || '', p.name].join('\t'));
     });
     var no = /([가-힣A-Za-z]+(?:과|팀|실|국|센터|지원청))\s*-\s*(\d+)\s*\(\s*(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})\s*\.?\s*\)/.exec(txt);
@@ -1254,7 +1264,10 @@ if (typeof module !== 'undefined') module.exports = XW;
       }
       list.forEach(function (pp, pi) {
         var m = EDU.matchPerson(people, { name: pp.name, rank: pp.rank, org: pp.dept });
-        if (m.st !== 'ok') { if (faceMiss.indexOf(pp.name) < 0) faceMiss.push(pp.name); return; }
+        // 명단에 부서가 적혀 있으면 부서도 같아야 같은 사람 (다른 부서의 같은 이름을 우리 부서 사람으로 채우지 않게)
+        var dA = norm(pp.dept), dB = m.p ? norm(m.p.dept) : '';
+        if (m.st === 'ok' && dA && dB && dA.indexOf(dB) < 0 && dB.indexOf(dA) < 0) m = { st: 'none' };
+        if (m.st !== 'ok') { var lab = pp.name + (pp.dept ? '(' + pp.dept + ')' : ''); if (faceMiss.indexOf(lab) < 0) faceMiss.push(lab); return; }
         rec[m.p.id + '|' + g.key] = { id: 'f' + gi + '_' + pi, face: true, file: '대면교육 명단 ' + (gi + 1), keys: [g.key], issuer: df.issuer, method: '대면', lines: [], person: m.p,
           c: { name: pp.name, rank: pp.rank, dept: pp.dept, org: pp.dept, course: df.course, periodText: d, period: d, method: '대면', issuer: df.issuer, no: g.no, date: d, hours: g.hours, sheets: [g.key] } };
         faceDone++;
@@ -1429,7 +1442,7 @@ if (typeof module !== 'undefined') module.exports = XW;
     if (M.faceDone) info.push('대면교육 이수자 명단으로 <b>' + M.faceDone + '명</b>을 대면으로 채웁니다.');
     if (M.faceRepl.length) info.push('대면교육 명단에 있어 원래 적혀 있던(사이버 등) 내용을 <b>대면 명단 내용으로 바꾼 줄 ' + M.faceRepl.length + '개</b>: ' + M.faceRepl.slice(0, 8).map(esc).join(', ') + (M.faceRepl.length > 8 ? ' 외' : ''));
     if (M.faceBlank.length) info.push('대면교육 명단에서 비워 둔 칸은 결과에도 빈칸으로 둡니다: ' + M.faceBlank.map(esc).join(' / ') + ' (과정명은 교육 이름, 교육기관은 서식 목록의 교육지원청으로 채움)');
-    if (M.faceMiss.length) info.push('대면교육 명단에 있지만 우리 부서 명단에서 찾지 못한 사람 <b>' + M.faceMiss.length + '명</b>: ' + M.faceMiss.slice(0, 8).map(esc).join(', ') + (M.faceMiss.length > 8 ? ' 외' : '') + ' (다른 부서이거나 이름이 다름)');
+    if (M.faceMiss.length) info.push('대면교육 명단에 있지만 우리 부서 사람이 아니어서(다른 부서이거나 이름이 다름) 넣지 않은 사람 <b>' + M.faceMiss.length + '명</b>: ' + M.faceMiss.slice(0, 8).map(esc).join(', ') + (M.faceMiss.length > 8 ? ' 외' : ''));
     if (M.faceFix.length) info.push('장애인식개선교육은 <b>대면교육 우선</b>인데, 대면 이수증이 있는 사람의 줄이 이미 사이버교육으로 적혀 있습니다 (손으로 적은 칸은 그대로 둠): <b>' + M.faceFix.map(esc).join(', ') + '</b> — 서식에서 그 줄을 지우고 다시 만들거나 직접 고치세요.');
     if (M.kept.length) info.push('이미 적어 둔 내용과 이수증이 다른 줄 <b>' + M.kept.length + '개</b>는 적어 둔 내용을 그대로 뒀습니다 (빈 칸만 채움): ' + M.kept.slice(0, 6).map(esc).join(', ') + (M.kept.length > 6 ? ' 외' : ''));
     if (M.only) info.push('우리 부서만 남기기: 시트마다 <b>' + M.roster.length + '명</b>만 순서대로 적고, 다른 사람 줄은 지웁니다 (원래 파일은 그대로).');
