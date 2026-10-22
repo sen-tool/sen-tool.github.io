@@ -219,9 +219,9 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
     <summary><b>대면교육 이수자 명단 넣기</b> <span class="why">(이수증 없이 공문 명단만 있을 때 · 장애인식개선 · 청렴 등)</span></summary>
     <p class="lead" style="margin-top:8px">공문으로 받은 대면교육 이수자 명단을 넣으면, 명단 사람의 그 교육 시트를 <b>대면</b>으로 채웁니다. 사이버 이수증이 있어도 명단이 먼저이고, 손으로 적어 둔 칸은 그대로 둡니다. 공문 하나에 한 묶음씩 넣으세요. <b>명단 말고 나머지 칸은 교육별로 이 PC에 기억</b>해 두므로, 다음부터는 교육을 고르고 명단만 붙여 넣으면 됩니다 (이름은 저장하지 않음).</p>
     <div id="faceGroups"></div>
-    <button type="button" id="faceAdd">+ 대면교육 명단 추가</button>
+    <button type="button" id="faceAdd">+ 대면교육 명단 추가</button> <button type="button" class="plain" id="faceAddFile">+ 명단 파일로 추가 (엑셀·PDF·ODT·hwpx)</button>
     <p class="hint" id="faceMsg"></p>
-    <input type="file" id="faceFile" accept=".xlsx,.xls,.xlsm,.csv,.odt,.hwpx" class="hidden">
+    <input type="file" id="faceFile" accept=".xlsx,.xls,.xlsm,.csv,.pdf,.odt,.hwpx" class="hidden">
   </details>
 </section>
 
@@ -1049,7 +1049,7 @@ if (typeof module !== 'undefined') module.exports = XW;
         '<label>교육기관<select data-f="issuer"><option value="">비우면 교육지원청</option>' + opt(orgs.map(function (o) { return [o, o]; }), g.issuer) + '</select></label>' +
         '<label>이수시간<input type="text" data-f="hours" value="' + esc(g.hours) + '" placeholder="예: 2시간"></label>' +
         '<label>이수 공문 (이수증번호 칸)<input type="text" data-f="no" value="' + esc(g.no) + '" placeholder="예: 행정지원과-5049(2025. 4. 2.)"></label></div>' +
-        '<label class="fnames" style="margin-top:8px">이수자 명단 — 공문 명단의 <b>부서명 · 직위 · 이름</b>을 복사해 붙여 넣거나 <button type="button" class="plain" data-file="' + i + '">명단 파일 넣기(엑셀·ODT·hwpx)</button> <span class="why">(' + n + '명)</span><textarea data-f="names" spellcheck="false" placeholder="행정지원과	주무관	홍길동">' + esc(g.names) + '</textarea></label></div>';
+        '<label class="fnames" style="margin-top:8px">이수자 명단 — 공문 명단의 <b>부서명 · 직위 · 이름</b>을 복사해 붙여 넣거나 <button type="button" class="plain" data-file="' + i + '">명단 파일 넣기(엑셀·PDF·ODT·hwpx)</button> <span class="why">(' + n + '명)</span><textarea data-f="names" spellcheck="false" placeholder="행정지원과	주무관	홍길동">' + esc(g.names) + '</textarea></label></div>';
     }).join('');
   }
   function dayText(v) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ''); return m ? (+m[1]) + '.' + (+m[2]) + '.' + (+m[3]) + '.' : ''; }
@@ -1254,7 +1254,7 @@ if (typeof module !== 'undefined') module.exports = XW;
     return '';
   }
   function addFaceGroup(key, lines, fileName, info) {
-    var old = faceGroups.filter(function (x) { return x.from === fileName; })[0];
+    var old = faceGroups.filter(function (x) { return x.from === fileName && x.key === key; })[0];
     if (old) {
       old.names = lines.join('\n');
       ['no', 'course', 'day', 't1', 't2'].forEach(function (k) { if (info[k] && !old[k]) old[k] = info[k]; });
@@ -1757,15 +1757,34 @@ if (typeof module !== 'undefined') module.exports = XW;
     });
     return out;
   }
+  // 명단 파일 하나 읽기: 이름 줄 · 교육을 짐작할 글자(파일 이름·제목) · 공문 정보
+  function readListFile(f) {
+    var fromText = function (all) { var r = nameListFromText(all); return { lines: r.lines, info: r.info, head: f.name + ' ' + all.join(' ') }; };
+    return readBuf(f).then(function (buf) {
+      if (/\.pdf$/i.test(f.name)) return readPdf(buf).then(function (pages) { return fromText([].concat.apply([], pages.map(function (it) { return EDU.toLines(it); }))); });
+      if (/\.(odt|hwpx)$/i.test(f.name)) return docLines(buf).then(fromText);
+      var wb = null; try { wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true }); } catch (er) {}
+      if (!wb) return { lines: [], info: {}, head: f.name };
+      var first = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]).split('\n').slice(0, 6).map(function (l) { return l.replace(/,+/g, ' ').trim(); });
+      return { lines: readNameList(wb), info: { course: courseFrom(first) }, head: f.name + ' ' + wb.SheetNames.join(' ') + ' ' + first.join(' ') };
+    }).catch(function () { return { lines: [], info: {}, head: f.name }; });
+  }
+  $('faceAddFile').addEventListener('click', function () { faceFileFor = -1; $('faceFile').click(); });
   $('faceFile').onchange = function () {
     var f = this.files[0], gi = faceFileFor; this.value = '';
-    if (!f || !faceGroups[gi]) return;
-    readBuf(f).then(function (buf) {
-      if (/\.(odt|hwpx)$/i.test(f.name)) return docLines(buf).then(function (all) { return nameListFromText(all).lines; }, function () { return []; });
-      var wb = null; try { wb = XLSX.read(new Uint8Array(buf), { type: 'array' }); } catch (er) {}
-      return wb ? readNameList(wb) : [];
-    }).then(function (lines) {
-      if (!lines.length) { $('faceMsg').textContent = f.name + ' — 「이름(성명)」 칸을 찾지 못했습니다. 명단을 복사해 붙여 넣어 주세요.'; return; }
+    if (!f) return;
+    readListFile(f).then(function (r) {
+      var lines = r.lines;
+      if (!lines.length) { $('faceMsg').textContent = f.name + ' — ' + (/\.(xlsx|xls|xlsm|csv)$/i.test(f.name) ? '「이름(성명)」 칸을 찾지 못했습니다' : '명단에 있는 이름을 찾지 못했습니다' + (tpl ? '' : ' (1번에 서식을 먼저 넣으세요)')) + '. 명단을 복사해 붙여 넣어 주세요.'; return; }
+      // 「명단 파일로 추가」이거나, 이미 이름이 있는 명단에 다른 교육 명단을 넣으면 → 새 대면교육 명단으로
+      var g = faceGroups[gi], ks = EDU.rulesIn(r.head);
+      if (!g || (g.names.trim() && ks.length && ks.indexOf(g.key) < 0)) { addFaceGroup(guessFaceKey(r.head), lines, f.name, r.info); refresh(); return; }
+      // 빈 명단에 넣으면 그 명단의 교육·공문 정보를 파일에 맞춤 (적어 둔 칸은 그대로)
+      if (!g.names.trim()) {
+        if (ks.length && ks.indexOf(g.key) < 0) g.key = guessFaceKey(r.head);
+        ['no', 'course', 'day', 't1', 't2'].forEach(function (k) { if (r.info[k] && !g[k]) g[k] = r.info[k]; });
+        g.from = f.name;
+      }
       // 같은 파일을 다시 넣어도 이미 있는 줄은 겹쳐 넣지 않음
       var have = faceGroups[gi].names.split('\n').map(function (l) { return norm(l); }).filter(Boolean);
       var add = lines.filter(function (l) { var n = norm(l); if (have.indexOf(n) >= 0) return false; have.push(n); return true; });
