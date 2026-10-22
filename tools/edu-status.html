@@ -639,6 +639,9 @@ var EDU = (function () {
       var h = clean(cert.name);
       cand = people.filter(function (p) { var q = norm(p.name); return /^[가-힣]{2,}$/.test(q) && h === q; });   // 명단 이름이 한글 이름일 때만
     }
+    // 이수증 소속에 과·팀 이름이 있는데 그 사람 부서와 다르면 같은 이름의 다른 사람
+    var toks = String(cert.org || '').split(/\s+/).map(norm).filter(function (t) { return t.length >= 3 && /(과|팀|센터|실)$/.test(t); });
+    if (toks.length) cand = cand.filter(function (p) { var d = norm(p.dept); return !d || toks.some(function (t) { return t.indexOf(d) >= 0 || d.indexOf(t) >= 0; }); });
     if (cand.length === 1) return { st: 'ok', p: cand[0] };
     if (!cand.length) return { st: 'none' };
     var by = cand.filter(function (p) { return p.rank && norm(p.rank) === norm(cert.rank); });
@@ -1211,15 +1214,18 @@ if (typeof module !== 'undefined') module.exports = XW;
   function clearFiles() { certs = []; bad = []; seen = {}; pick = {}; certFilter = ''; certQuery = ''; refresh(); }
 
   /* 명단을 붙여 넣지 않았으면 서식 시트에 적힌 이름들(처음 나온 순서)을 명단으로 */
+  function sameDept(a, b) { a = norm(a); b = norm(b); return !a || !b || a.indexOf(b) >= 0 || b.indexOf(a) >= 0; }
   function formRoster() {
-    var out = [], at = {};
+    var out = [];
     (tpl ? tpl.sheets : []).forEach(function (sh) {
       if (!sh.key) return;
       sh.existing.forEach(function (ex) {
-        var k = norm(ex.vals.name);
-        if (!k) return;
-        if (at.hasOwnProperty(k)) { var o = out[at[k]]; if (!o.dept) o.dept = ex.vals.dept || ''; if (!o.rank) o.rank = ex.vals.rank || ''; return; }
-        at[k] = out.length; out.push({ dept: ex.vals.dept || '', rank: ex.vals.rank || '', name: String(ex.vals.name).trim() });
+        var nm = norm(ex.vals.name), dp = ex.vals.dept || '';
+        if (!nm) return;
+        // 이름이 같아도 부서가 다르면 다른 사람 (부서가 빈 줄은 같은 이름 사람에 합침)
+        var o = out.filter(function (x) { return norm(x.name) === nm && sameDept(x.dept, dp); })[0];
+        if (o) { if (!o.dept) o.dept = dp; if (!o.rank) o.rank = ex.vals.rank || ''; return; }
+        out.push({ dept: dp, rank: ex.vals.rank || '', name: String(ex.vals.name).trim() });
       });
     });
     return out;
@@ -1322,8 +1328,8 @@ if (typeof module !== 'undefined') module.exports = XW;
     var jobs = sheets.map(function (sh) {
       var rows = [], used = {};
       sh.existing.forEach(function (ex) {
-        var cand = people.filter(function (p) { return norm(p.name) === norm(ex.vals.name); });
-        if (cand.length > 1) cand = cand.filter(function (p) { return !p.dept || !ex.vals.dept || norm(p.dept) === norm(ex.vals.dept); });
+        // 같은 이름이라도 부서가 둘 다 적혀 있으면 부서까지 같아야 같은 사람 (다른 과 동명이인 줄을 가져오지 않게)
+        var cand = people.filter(function (p) { return norm(p.name) === norm(ex.vals.name) && sameDept(p.dept, ex.vals.dept); });
         var p = cand.length === 1 && !used[cand[0].id] ? cand[0] : null;
         if (p) { used[p.id] = 1; if (ex.vals.course || ex.vals.date || ex.vals.no) had[p.id + '|' + sh.key] = 1; }
         rows.push({ p: p, ex: ex.vals, r: ex.r });
