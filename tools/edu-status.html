@@ -221,7 +221,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
     <div id="faceGroups"></div>
     <button type="button" id="faceAdd">+ 대면교육 명단 추가</button> <button type="button" class="plain" id="faceAddFile">+ 명단 파일로 추가 (엑셀·PDF·ODT·hwpx)</button>
     <p class="hint" id="faceMsg"></p>
-    <input type="file" id="faceFile" accept=".xlsx,.xls,.xlsm,.csv,.pdf,.odt,.hwpx" class="hidden">
+    <input type="file" id="faceFile" accept=".xlsx,.xls,.xlsm,.csv,.pdf,.odt,.hwpx,.hwp" class="hidden">
   </details>
 </section>
 
@@ -252,7 +252,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
 </section>
 
 <input type="file" id="tplInput" accept=".xlsx,.xlsm" class="hidden">
-<input type="file" id="fileInput" multiple accept=".pdf,application/pdf,.xlsx,.xls,.csv,.odt,.hwpx" class="hidden">
+<input type="file" id="fileInput" multiple accept=".pdf,application/pdf,.xlsx,.xls,.csv,.odt,.hwpx,.hwp" class="hidden">
 <input type="file" id="dirInput" webkitdirectory multiple class="hidden">
 
 <footer>
@@ -1116,32 +1116,34 @@ if (typeof module !== 'undefined') module.exports = XW;
     var sheetsIn = Array.prototype.filter.call(list, function (f) { return /\.(xlsx|xls|xlsm|csv)$/i.test(f.name) && !/^~\$/.test(f.name); });
     // 오픈오피스(.odt)·한글(.hwpx) 문서는 공문 이수자 명단일 수 있음 → 공문 PDF처럼 글자에서 이름을 찾음
     var docsIn = Array.prototype.filter.call(list, function (f) { return /\.(odt|hwpx)$/i.test(f.name) && !/^~\$/.test(f.name); });
-    var skipped = Array.prototype.filter.call(list, function (f) { return !/\.(pdf|xlsx|xls|xlsm|csv|odt|hwpx)$/i.test(f.name) && !/^(\.|~\$|Thumbs\.db$|desktop\.ini$)/i.test(f.name); });
+    var notes = [];
+    var listNote = function (msg) { bad.push(msg); notes.push(msg); };
+    var hwp = Array.prototype.filter.call(list, function (f) { return /\.hwp$/i.test(f.name); });
+    var skipped = Array.prototype.filter.call(list, function (f) { return !/\.(pdf|xlsx|xls|xlsm|csv|odt|hwpx|hwp)$/i.test(f.name) && !/^(\.|~\$|Thumbs\.db$|desktop\.ini$)/i.test(f.name); });
     if (skipped.length) bad.push('PDF가 아닌 파일 ' + skipped.length + '개는 건너뜀: ' + skipped.slice(0, 5).map(function (f) { return f.name; }).join(', ') + (skipped.length > 5 ? ' 외' : ''));
     // 다시 읽는 파일의 지난번 오류 안내는 지움
     var again = sheetsIn.concat(docsIn, todo).map(function (f) { return f.name + ' — '; });
     bad = bad.filter(function (b) { return !again.some(function (a) { return b.indexOf(a) === 0; }); });
     $('srcName').textContent = '읽는 중… (' + todo.length + '개)'; $('srcLoaded').classList.remove('hidden');
     var chain = Promise.resolve();
+    hwp.forEach(function (f) { listNote(f.name + ' — 한글 .hwp 파일은 읽지 못함 (한글에서 「다른 이름으로 저장」→ hwpx나 PDF로 저장해 넣으세요)'); });
     sheetsIn.forEach(function (f) {
       chain = chain.then(function () { return readBuf(f); }).then(function (buf) {
         var wb = null; try { wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true }); } catch (e) {}
         if (!wb) { bad.push(f.name + ' — 열 수 없음'); return; }
         if (EDU.locateSheets(wb).filter(function (x) { return x.key; }).length >= 2) { bad.push(f.name + ' — 이수현황 서식 같아 건너뜀 (서식은 1번에 넣으세요)'); return; }
-        var lines = readNameList(wb);
-        if (!lines.length) { bad.push(f.name + ' — 이수증도 명단도 아님 (이름·성명 칸 없음)'); return; }
-        var first = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]).split('\n').slice(0, 6).map(function (l) { return l.replace(/,+/g, ' ').trim(); });
-        var head = f.name + ' ' + wb.SheetNames.join(' ') + ' ' + first.join(' ');
-        addFaceGroup(guessFaceKey(head), lines, f.name, { course: courseFrom(first) });
+        var r = namesFromWorkbook(wb, f.name);
+        if (!r.lines.length) { listNote(f.name + ' — 명단에서 이름을 찾지 못함' + (tpl ? ' (「이름」·「성명」 칸이 없고, 서식에 적힌 이름도 없음)' : ' (1번에 서식을 먼저 넣고 다시 넣으세요)')); return; }
+        addFaceGroup(guessFaceKey(r.head), r.lines, f.name, r.info);
       });
     });
     docsIn.forEach(function (f) {
       chain = chain.then(function () { return readBuf(f); }).then(docLines).then(function (all) {
-        if (!all.length) { bad.push(f.name + ' — 글자가 없는 문서'); return; }
+        if (!all.length) { listNote(f.name + ' — 글자가 없는 문서'); return; }
         var found = nameListFromText(all);
         if (found.lines.length) { addFaceGroup(guessFaceKey(f.name + ' ' + all.join(' ')), found.lines, f.name, found.info); return; }
-        bad.push(f.name + ' — 명단에 있는 이름을 찾지 못함' + (tpl ? '' : ' (1번에 서식을 먼저 넣고 다시 넣으세요)'));
-      }).catch(function (e) { bad.push(f.name + ' — 열 수 없음 (' + (e && e.message ? e.message : e) + ')'); });
+        listNote(f.name + ' — 서식(명단)에 있는 이름을 찾지 못함' + (tpl ? '' : ' (1번에 서식을 먼저 넣고 다시 넣으세요)'));
+      }).catch(function (e) { listNote(f.name + ' — 열 수 없음 (' + (e && e.message ? e.message : e) + ')'); });
     });
     todo.forEach(function (f) {
       seen[f.name + '|' + f.size] = 1;
@@ -1163,10 +1165,14 @@ if (typeof module !== 'undefined') module.exports = XW;
           if (found.lines.length) { addFaceGroup(guessFaceKey(f.name + ' ' + all.join(' ')), found.lines, f.name, found.info); return; }
         }
         if (!got) delete seen[f.name + '|' + f.size];
+        if (!got && anyText && !tpl) { listNote(f.name + ' — 이수증이 아님. 이수자 명단 공문이면 1번에 서식을 먼저 넣고 다시 넣으세요'); return; }
         if (!got) bad.push(f.name + (anyText ? ' — 이수증 칸(성명·연수 과정)을 찾지 못함' + (tpl ? '' : ' (명단 PDF면 1번에 서식을 먼저 넣고 다시 넣으세요)') : ' — 글자가 없는 PDF (스캔한 그림)'));
       }).catch(function (e) { bad.push(f.name + ' — 열 수 없음 (' + (e && e.message ? e.message : e) + ')'); });
     });
-    chain.then(refresh);
+    chain.then(function () {
+      if (notes.length) { $('faceBox').open = true; $('faceMsg').innerHTML = '<b>⚠ 명단으로 읽지 못한 파일</b><br>' + notes.map(esc).join('<br>'); }
+      refresh();
+    });
   }
   // .odt(content.xml)·.hwpx(Contents/section*.xml) 문서의 글자를 줄로: 문단은 한 줄, 표는 한 행을 한 줄로 (부서·이름이 같은 줄에 오게)
   function docLines(buf) {
@@ -1737,15 +1743,29 @@ if (typeof module !== 'undefined') module.exports = XW;
   });
   // 명단 엑셀(공문 첨부)에서 부서명 · 직위 · 이름 칸을 찾아 읽기
   var faceFileFor = -1;
+  function namesFromWorkbook(wb, fileName) {
+    var first = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]).split('\n').slice(0, 6).map(function (l) { return l.replace(/,+/g, ' ').trim(); });
+    var head = fileName + ' ' + wb.SheetNames.join(' ') + ' ' + first.join(' ');
+    var lines = readNameList(wb), info = { course: courseFrom(first) };
+    if (!lines.length) {
+      var all = [];
+      wb.SheetNames.forEach(function (sn) {
+        XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: false, defval: '' }).forEach(function (row) { var t = row.join(' ').replace(/\s+/g, ' ').trim(); if (t) all.push(t); });
+      });
+      var r = nameListFromText(all);
+      lines = r.lines; info = r.info; head += ' ' + all.slice(0, 10).join(' ');
+    }
+    return { lines: lines, info: info, head: head };
+  }
   function readNameList(wb) {
     var out = [];
     wb.SheetNames.forEach(function (sn) {
       var rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: false, defval: '' });
       for (var h = 0; h < Math.min(rows.length, 30); h++) {
         var hdr = rows[h].map(function (v) { return norm(v); });
-        var ci = hdr.findIndex(function (v) { return /^(이름|성명)$/.test(v); });
+        var ci = hdr.findIndex(function (v) { return /^(이름|성명)([(（].*)?$/.test(v); });   // 「성명(서명)」 같은 칸도
         if (ci < 0) continue;
-        var di = hdr.findIndex(function (v) { return /^(부서명?|소속|소속부서|기관)$/.test(v); });
+        var di = hdr.findIndex(function (v) { return /^(부서명?|소속|소속부서|소속부서명|기관)([(（].*)?$/.test(v); });
         var ri = hdr.findIndex(function (v) { return /^(직위|직급|직렬)$/.test(v); });
         for (var r = h + 1; r < rows.length; r++) {
           var nm = String(rows[r][ci] || '').trim();
@@ -1765,14 +1785,15 @@ if (typeof module !== 'undefined') module.exports = XW;
       if (/\.(odt|hwpx)$/i.test(f.name)) return docLines(buf).then(fromText);
       var wb = null; try { wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true }); } catch (er) {}
       if (!wb) return { lines: [], info: {}, head: f.name };
-      var first = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]).split('\n').slice(0, 6).map(function (l) { return l.replace(/,+/g, ' ').trim(); });
-      return { lines: readNameList(wb), info: { course: courseFrom(first) }, head: f.name + ' ' + wb.SheetNames.join(' ') + ' ' + first.join(' ') };
+      return namesFromWorkbook(wb, f.name);
     }).catch(function () { return { lines: [], info: {}, head: f.name }; });
   }
   $('faceAddFile').addEventListener('click', function () { faceFileFor = -1; $('faceFile').click(); });
   $('faceFile').onchange = function () {
     var f = this.files[0], gi = faceFileFor; this.value = '';
     if (!f) return;
+    $('faceMsg').textContent = f.name + ' 읽는 중…';
+    if (/\.hwp$/i.test(f.name)) { $('faceMsg').textContent = f.name + ' — 한글 .hwp 파일은 읽지 못합니다. 한글에서 「다른 이름으로 저장」→ hwpx나 PDF로 저장해 넣으세요.'; return; }
     readListFile(f).then(function (r) {
       var lines = r.lines;
       if (!lines.length) { $('faceMsg').textContent = f.name + ' — ' + (/\.(xlsx|xls|xlsm|csv)$/i.test(f.name) ? '「이름(성명)」 칸을 찾지 못했습니다' : '명단에 있는 이름을 찾지 못했습니다' + (tpl ? '' : ' (1번에 서식을 먼저 넣으세요)')) + '. 명단을 복사해 붙여 넣어 주세요.'; return; }
