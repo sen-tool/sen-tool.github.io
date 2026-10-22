@@ -1112,15 +1112,18 @@ if (typeof module !== 'undefined') module.exports = XW;
   function addFiles(list) {
     var todo = Array.prototype.filter.call(list, function (f) { return /\.pdf$/i.test(f.name) && !seen[f.name + '|' + f.size]; });
     // 엑셀·CSV는 대면교육 이수자 명단일 수 있음 → 이름(성명) 칸이 있으면 명단으로
-    var sheetsIn = Array.prototype.filter.call(list, function (f) { return /\.(xlsx|xls|xlsm|csv)$/i.test(f.name) && !/^~\$/.test(f.name) && !seen[f.name + '|' + f.size]; });
+    // 명단 파일은 다시 넣으면 다시 읽어 그 파일로 만든 명단을 새로 바꿈 (명단을 고쳐 다시 넣거나, 서식을 넣은 뒤 다시 넣을 때)
+    var sheetsIn = Array.prototype.filter.call(list, function (f) { return /\.(xlsx|xls|xlsm|csv)$/i.test(f.name) && !/^~\$/.test(f.name); });
     // 오픈오피스(.odt)·한글(.hwpx) 문서는 공문 이수자 명단일 수 있음 → 공문 PDF처럼 글자에서 이름을 찾음
-    var docsIn = Array.prototype.filter.call(list, function (f) { return /\.(odt|hwpx)$/i.test(f.name) && !/^~\$/.test(f.name) && !seen[f.name + '|' + f.size]; });
+    var docsIn = Array.prototype.filter.call(list, function (f) { return /\.(odt|hwpx)$/i.test(f.name) && !/^~\$/.test(f.name); });
     var skipped = Array.prototype.filter.call(list, function (f) { return !/\.(pdf|xlsx|xls|xlsm|csv|odt|hwpx)$/i.test(f.name) && !/^(\.|~\$|Thumbs\.db$|desktop\.ini$)/i.test(f.name); });
     if (skipped.length) bad.push('PDF가 아닌 파일 ' + skipped.length + '개는 건너뜀: ' + skipped.slice(0, 5).map(function (f) { return f.name; }).join(', ') + (skipped.length > 5 ? ' 외' : ''));
+    // 다시 읽는 파일의 지난번 오류 안내는 지움
+    var again = sheetsIn.concat(docsIn, todo).map(function (f) { return f.name + ' — '; });
+    bad = bad.filter(function (b) { return !again.some(function (a) { return b.indexOf(a) === 0; }); });
     $('srcName').textContent = '읽는 중… (' + todo.length + '개)'; $('srcLoaded').classList.remove('hidden');
     var chain = Promise.resolve();
     sheetsIn.forEach(function (f) {
-      seen[f.name + '|' + f.size] = 1;
       chain = chain.then(function () { return readBuf(f); }).then(function (buf) {
         var wb = null; try { wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true }); } catch (e) {}
         if (!wb) { bad.push(f.name + ' — 열 수 없음'); return; }
@@ -1133,7 +1136,6 @@ if (typeof module !== 'undefined') module.exports = XW;
       });
     });
     docsIn.forEach(function (f) {
-      seen[f.name + '|' + f.size] = 1;
       chain = chain.then(function () { return readBuf(f); }).then(docLines).then(function (all) {
         if (!all.length) { bad.push(f.name + ' — 글자가 없는 문서'); return; }
         var found = nameListFromText(all);
@@ -1157,8 +1159,10 @@ if (typeof module !== 'undefined') module.exports = XW;
           // 이수증이 아닌 PDF: 공문의 이수자 명단일 수 있음 → 우리 부서 사람 이름이 들어 있으면 대면교육 명단으로
           var all = [].concat.apply([], pages.map(function (items) { return EDU.toLines(items); }));
           var found = nameListFromText(all);
+          delete seen[f.name + '|' + f.size];
           if (found.lines.length) { addFaceGroup(guessFaceKey(f.name + ' ' + all.join(' ')), found.lines, f.name, found.info); return; }
         }
+        if (!got) delete seen[f.name + '|' + f.size];
         if (!got) bad.push(f.name + (anyText ? ' — 이수증 칸(성명·연수 과정)을 찾지 못함' + (tpl ? '' : ' (명단 PDF면 1번에 서식을 먼저 넣고 다시 넣으세요)') : ' — 글자가 없는 PDF (스캔한 그림)'));
       }).catch(function (e) { bad.push(f.name + ' — 열 수 없음 (' + (e && e.message ? e.message : e) + ')'); });
     });
@@ -1250,6 +1254,15 @@ if (typeof module !== 'undefined') module.exports = XW;
     return '';
   }
   function addFaceGroup(key, lines, fileName, info) {
+    var old = faceGroups.filter(function (x) { return x.from === fileName; })[0];
+    if (old) {
+      old.names = lines.join('\n');
+      ['no', 'course', 'day', 't1', 't2'].forEach(function (k) { if (info[k] && !old[k]) old[k] = info[k]; });
+      $('faceBox').open = true;
+      $('faceMsg').textContent = fileName + ' — 다시 읽어 「' + RULE_LABEL(old.key) + '」 대면교육 명단을 ' + lines.length + '명으로 새로 바꿨습니다.';
+      faceRender();
+      return;
+    }
     var g = faceNew(key);
     g.names = lines.join('\n');
     if (info.no) g.no = info.no;
@@ -1753,8 +1766,11 @@ if (typeof module !== 'undefined') module.exports = XW;
       return wb ? readNameList(wb) : [];
     }).then(function (lines) {
       if (!lines.length) { $('faceMsg').textContent = f.name + ' — 「이름(성명)」 칸을 찾지 못했습니다. 명단을 복사해 붙여 넣어 주세요.'; return; }
-      faceGroups[gi].names = (faceGroups[gi].names.trim() ? faceGroups[gi].names.trim() + '\n' : '') + lines.join('\n');
-      $('faceMsg').textContent = f.name + '에서 ' + lines.length + '명을 읽었습니다.';
+      // 같은 파일을 다시 넣어도 이미 있는 줄은 겹쳐 넣지 않음
+      var have = faceGroups[gi].names.split('\n').map(function (l) { return norm(l); }).filter(Boolean);
+      var add = lines.filter(function (l) { var n = norm(l); if (have.indexOf(n) >= 0) return false; have.push(n); return true; });
+      faceGroups[gi].names = (faceGroups[gi].names.trim() ? faceGroups[gi].names.trim() + (add.length ? '\n' : '') : '') + add.join('\n');
+      $('faceMsg').textContent = f.name + '에서 ' + lines.length + '명을 읽었습니다' + (add.length < lines.length ? ' (이미 있는 ' + (lines.length - add.length) + '명은 겹쳐 넣지 않음)' : '') + '.';
       faceRender(); refresh();
     });
   };
