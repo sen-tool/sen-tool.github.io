@@ -198,6 +198,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
       <li><b>다른 교육·다른 부서 사람 이수증</b>이 섞여 있어도 알아서 걸러 냅니다.</li>
       <li>PDF가 아닌 파일(한글·사진 등)은 건너뜁니다.</li>
       <li>법정묶음 이수증 한 장은 들어 있는 교육 시트마다 채웁니다.</li>
+      <li><b>대면교육 이수자 명단</b>(명단 엑셀이나 공문 PDF)도 같이 넣으면, 이수증이 아닌 걸 알아보고 아래 「대면교육 이수자 명단」으로 옮깁니다.</li>
     </ul>
     <div class="zone" id="drop" tabindex="0" role="button" aria-label="이수증 폴더 또는 PDF 선택">
       <strong>이수증 폴더를 여기로 끌어다 놓으세요</strong>
@@ -249,7 +250,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
 </section>
 
 <input type="file" id="tplInput" accept=".xlsx,.xlsm" class="hidden">
-<input type="file" id="fileInput" multiple accept=".pdf,application/pdf" class="hidden">
+<input type="file" id="fileInput" multiple accept=".pdf,application/pdf,.xlsx,.xls,.csv" class="hidden">
 <input type="file" id="dirInput" webkitdirectory multiple class="hidden">
 
 <footer>
@@ -1022,7 +1023,7 @@ if (typeof module !== 'undefined') module.exports = XW;
     var keys = FACE_KEYS.map(function (k) { return [k, RULE_LABEL(k)]; }).concat(EDU.RULES.filter(function (r) { return FACE_KEYS.indexOf(r.k) < 0; }).map(function (r) { return [r.k, r.label]; }));
     $('faceGroups').innerHTML = faceGroups.map(function (g, i) {
       var n = EDU.parseRoster(g.names).length;
-      return '<div class="fgroup" data-g="' + i + '"><div class="fhead"><b>대면교육 명단 ' + (i + 1) + '</b><button type="button" class="plain" data-del="' + i + '">빼기</button></div><div class="fgrid">' +
+      return '<div class="fgroup" data-g="' + i + '"><div class="fhead"><b>대면교육 명단 ' + (i + 1) + (g.from ? ' <span class="why">(' + esc(g.from) + ')</span>' : '') + '</b><button type="button" class="plain" data-del="' + i + '">빼기</button></div><div class="fgrid">' +
         '<label>교육<select data-f="key">' + opt(keys, g.key) + '</select></label>' +
         '<label>과정명<input type="text" data-f="course" value="' + esc(g.course) + '" placeholder="비우면 「' + esc(RULE_LABEL(g.key)) + '교육(대면)」"></label>' +
         '<label>교육 실시일 (교육기간 · 교육수료일)<input type="date" data-f="day" value="' + esc(g.day) + '"></label>' +
@@ -1091,10 +1092,25 @@ if (typeof module !== 'undefined') module.exports = XW;
   var nextId = 1;
   function addFiles(list) {
     var todo = Array.prototype.filter.call(list, function (f) { return /\.pdf$/i.test(f.name) && !seen[f.name + '|' + f.size]; });
-    var skipped = Array.prototype.filter.call(list, function (f) { return !/\.pdf$/i.test(f.name) && !/^(\.|~\$|Thumbs\.db$|desktop\.ini$)/i.test(f.name); });
+    // 엑셀·CSV는 대면교육 이수자 명단일 수 있음 → 이름(성명) 칸이 있으면 명단으로
+    var sheetsIn = Array.prototype.filter.call(list, function (f) { return /\.(xlsx|xls|xlsm|csv)$/i.test(f.name) && !/^~\$/.test(f.name) && !seen[f.name + '|' + f.size]; });
+    var skipped = Array.prototype.filter.call(list, function (f) { return !/\.(pdf|xlsx|xls|xlsm|csv)$/i.test(f.name) && !/^(\.|~\$|Thumbs\.db$|desktop\.ini$)/i.test(f.name); });
     if (skipped.length) bad.push('PDF가 아닌 파일 ' + skipped.length + '개는 건너뜀: ' + skipped.slice(0, 5).map(function (f) { return f.name; }).join(', ') + (skipped.length > 5 ? ' 외' : ''));
     $('srcName').textContent = '읽는 중… (' + todo.length + '개)'; $('srcLoaded').classList.remove('hidden');
     var chain = Promise.resolve();
+    sheetsIn.forEach(function (f) {
+      seen[f.name + '|' + f.size] = 1;
+      chain = chain.then(function () { return readBuf(f); }).then(function (buf) {
+        var wb = null; try { wb = XLSX.read(new Uint8Array(buf), { type: 'array', cellDates: true }); } catch (e) {}
+        if (!wb) { bad.push(f.name + ' — 열 수 없음'); return; }
+        if (EDU.locateSheets(wb).filter(function (x) { return x.key; }).length >= 2) { bad.push(f.name + ' — 이수현황 서식 같아 건너뜀 (서식은 1번에 넣으세요)'); return; }
+        var lines = readNameList(wb);
+        if (!lines.length) { bad.push(f.name + ' — 이수증도 명단도 아님 (이름·성명 칸 없음)'); return; }
+        var first = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]).split('\n').slice(0, 6).map(function (l) { return l.replace(/,+/g, ' ').trim(); });
+        var head = f.name + ' ' + wb.SheetNames.join(' ') + ' ' + first.join(' ');
+        addFaceGroup(guessFaceKey(head), lines, f.name, { course: courseFrom(first) });
+      });
+    });
     todo.forEach(function (f) {
       seen[f.name + '|' + f.size] = 1;
       chain = chain.then(function () { return readBuf(f); }).then(function (buf) { return readPdf(buf); }).then(function (pages) {
@@ -1107,10 +1123,59 @@ if (typeof module !== 'undefined') module.exports = XW;
           certs.push({ id: nextId++, file: f.name, page: pages.length > 1 ? pi + 1 : 0, c: c, lines: lines });
           got++;
         });
-        if (!got) bad.push(f.name + (anyText ? ' — 이수증 칸(성명·연수 과정)을 찾지 못함' : ' — 글자가 없는 PDF (스캔한 그림)'));
+        if (!got && anyText) {
+          // 이수증이 아닌 PDF: 공문의 이수자 명단일 수 있음 → 우리 부서 사람 이름이 들어 있으면 대면교육 명단으로
+          var all = [].concat.apply([], pages.map(function (items) { return EDU.toLines(items); }));
+          var found = nameListFromText(all);
+          if (found.lines.length) { addFaceGroup(guessFaceKey(f.name + ' ' + all.join(' ')), found.lines, f.name, found.info); return; }
+        }
+        if (!got) bad.push(f.name + (anyText ? ' — 이수증 칸(성명·연수 과정)을 찾지 못함' + (tpl ? '' : ' (명단 PDF면 1번에 서식을 먼저 넣고 다시 넣으세요)') : ' — 글자가 없는 PDF (스캔한 그림)'));
       }).catch(function (e) { bad.push(f.name + ' — 열 수 없음 (' + (e && e.message ? e.message : e) + ')'); });
     });
     chain.then(refresh);
+  }
+  // 명단 파일 이름·제목에서 교육 짐작 (대면 명단을 주로 쓰는 교육 먼저)
+  function guessFaceKey(text) {
+    var ks = EDU.rulesIn(text);
+    return FACE_KEYS.filter(function (k) { return ks.indexOf(k) >= 0; })[0] || ks[0] || 'disabAware';
+  }
+  // 공문 PDF 글자에서 서식에 적힌 사람 이름을 찾아 명단으로, 공문 번호·교육 일자도 찾아봄
+  function nameListFromText(lines) {
+    var txt = lines.join('\n'), flat = norm(txt), out = [], info = {};
+    var people = formRoster().concat(EDU.parseRoster($('roster').value)), seenN = {};
+    people.forEach(function (p) {
+      var n = norm(p.name);
+      if (n.length < 2 || seenN[n] || flat.indexOf(n) < 0) return;
+      seenN[n] = 1; out.push([p.dept || '', p.rank || '', p.name].join('\t'));
+    });
+    var no = /([가-힣A-Za-z]+(?:과|팀|실|국|센터|지원청))\s*-\s*(\d+)\s*\(\s*(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})\s*\.?\s*\)/.exec(txt);
+    if (no) info.no = no[1] + '-' + no[2] + '(' + no[3] + '. ' + (+no[4]) + '. ' + (+no[5]) + '.)';
+    var dm = /교육\s*(?:일시|일자|기간|일)\s*[:：]?\s*(\d{4})\s*[.\-년]\s*(\d{1,2})\s*[.\-월]\s*(\d{1,2})/.exec(txt);
+    if (dm) info.day = dm[1] + '-' + ('0' + dm[2]).slice(-2) + '-' + ('0' + dm[3]).slice(-2);
+    info.course = courseFrom(lines);
+    return { lines: out, info: info };
+  }
+  // 제목에서 과정명: 「2026년 장애인식개선 교육 이수자 알림」 → 「2026년 장애인식개선 교육」
+  function courseFrom(lines) {
+    for (var i = 0; i < lines.length; i++) {
+      var t = String(lines[i]).replace(/^\s*제\s*목\s*[:：]?\s*/, '').trim();
+      if (!/교육|연수/.test(t) || !EDU.rulesIn(t).length) continue;
+      var m = /^(.*?(?:교육|연수|과정))(?:\s*(?:이수자|이수|수료자|참석자|결과|명단|알림|통보|안내).*)?$/.exec(t);
+      if (m && m[1].length <= 60) return m[1].replace(/^[0-9.\s]+(?=\d{4}년)/, '').trim();
+    }
+    return '';
+  }
+  function addFaceGroup(key, lines, fileName, info) {
+    var g = faceNew(key);
+    g.names = lines.join('\n');
+    if (info.no) g.no = info.no;
+    if (info.course) g.course = info.course;
+    if (info.day) g.day = info.day;
+    g.from = fileName;
+    faceGroups.push(g);
+    $('faceBox').open = true;
+    $('faceMsg').textContent = fileName + ' — 이수증이 아니라 이수자 명단으로 보고 「' + RULE_LABEL(key) + '」 대면교육 명단 ' + lines.length + '명을 만들었습니다. 교육·과정명·실시일·공문을 확인하세요.';
+    faceRender();
   }
   function clearFiles() { certs = []; bad = []; seen = {}; pick = {}; certFilter = ''; certQuery = ''; refresh(); }
 
