@@ -214,7 +214,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
 <section class="card" id="faceCard">
   <details id="faceBox">
     <summary><b>대면교육 이수자 명단 넣기</b> <span class="why">(이수증 없이 공문 명단만 있을 때 · 장애인식개선 · 청렴 등)</span></summary>
-    <p class="lead" style="margin-top:8px">공문으로 받은 대면교육 이수자 명단을 넣으면, 명단 사람의 그 교육 시트를 <b>대면</b>으로 채웁니다. 사이버 이수증이 있어도 명단이 먼저이고, 손으로 적어 둔 칸은 그대로 둡니다. 공문 하나에 한 묶음씩 넣으세요.</p>
+    <p class="lead" style="margin-top:8px">공문으로 받은 대면교육 이수자 명단을 넣으면, 명단 사람의 그 교육 시트를 <b>대면</b>으로 채웁니다. 사이버 이수증이 있어도 명단이 먼저이고, 손으로 적어 둔 칸은 그대로 둡니다. 공문 하나에 한 묶음씩 넣으세요. <b>명단 말고 나머지 칸은 교육별로 이 PC에 기억</b>해 두므로, 다음부터는 교육을 고르고 명단만 붙여 넣으면 됩니다 (이름은 저장하지 않음).</p>
     <div id="faceGroups"></div>
     <button type="button" id="faceAdd">+ 대면교육 명단 추가</button>
     <p class="hint" id="faceMsg"></p>
@@ -994,18 +994,38 @@ if (typeof module !== 'undefined') module.exports = XW;
   var tab = 'grid', view = null;
   /* 대면교육 이수자 명단 (공문) — 이름이 들어 있어 이 PC에도 저장하지 않음 */
   var faceGroups = [];
+  var FACE_KEYS = ['disabAware', 'anticor', 'violence'];   // 대면교육 명단을 주로 쓰는 교육 (장애인식개선 · 청렴 · 4대폭력)
+  function RULE_LABEL(k) { var r = EDU.RULES.filter(function (x) { return x.k === k; })[0]; return r ? r.label : k; }
+  // 명단 말고 나머지 칸(과정명·실시일·교육기관·시간·공문)은 교육별로 이 PC에 기억 (이름은 기억하지 않음)
+  var faceMem = {};
+  try { faceMem = JSON.parse(localStorage.getItem('edu-face-v1') || '{}') || {}; } catch (e) { faceMem = {}; }
+  function faceRemember(g) {
+    if (!g.key) return;
+    faceMem[g.key] = { course: g.course, day: g.day, issuer: g.issuer, hours: g.hours, no: g.no };
+    try { localStorage.setItem('edu-face-v1', JSON.stringify(faceMem)); } catch (e) {}
+  }
+  function faceNew(key) {
+    var m = faceMem[key] || {};
+    return { key: key, course: m.course || '', day: m.day || '', issuer: m.issuer || '', hours: m.hours || '', no: m.no || '', names: '' };
+  }
+  // 비워 둔 칸의 기본값: 과정명은 교육 이름, 교육기관은 서식 목록의 교육지원청
+  function faceDefaults(g) {
+    var orgs = [];
+    (tpl ? tpl.sheets : []).forEach(function (sh) { sh.orgs.forEach(function (o) { if (orgs.indexOf(o) < 0) orgs.push(o); }); });
+    return { course: (g.course || '').trim() || RULE_LABEL(g.key) + '교육(대면)', issuer: g.issuer || orgs.filter(function (o) { return /교육지원청$/.test(o); })[0] || '' };
+  }
   function faceRender() {
     var orgs = [];
     (tpl ? tpl.sheets : []).forEach(function (sh) { sh.orgs.forEach(function (o) { if (orgs.indexOf(o) < 0) orgs.push(o); }); });
     var opt = function (list, cur) { return list.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === cur ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join(''); };
-    var keys = [['disabAware', '장애인식개선'], ['anticor', '부패방지(청렴)']].concat(EDU.RULES.filter(function (r) { return r.k !== 'disabAware' && r.k !== 'anticor'; }).map(function (r) { return [r.k, r.label]; }));
+    var keys = FACE_KEYS.map(function (k) { return [k, RULE_LABEL(k)]; }).concat(EDU.RULES.filter(function (r) { return FACE_KEYS.indexOf(r.k) < 0; }).map(function (r) { return [r.k, r.label]; }));
     $('faceGroups').innerHTML = faceGroups.map(function (g, i) {
       var n = EDU.parseRoster(g.names).length;
       return '<div class="fgroup" data-g="' + i + '"><div class="fhead"><b>대면교육 명단 ' + (i + 1) + '</b><button type="button" class="plain" data-del="' + i + '">빼기</button></div><div class="fgrid">' +
         '<label>교육<select data-f="key">' + opt(keys, g.key) + '</select></label>' +
-        '<label>과정명<input type="text" data-f="course" value="' + esc(g.course) + '" placeholder="예: 2026년 ○○교육지원청 장애인식개선 교육"></label>' +
+        '<label>과정명<input type="text" data-f="course" value="' + esc(g.course) + '" placeholder="비우면 「' + esc(RULE_LABEL(g.key)) + '교육(대면)」"></label>' +
         '<label>교육 실시일 (교육기간 · 교육수료일)<input type="date" data-f="day" value="' + esc(g.day) + '"></label>' +
-        '<label>교육기관<select data-f="issuer"><option value="">고르기…</option>' + opt(orgs.map(function (o) { return [o, o]; }), g.issuer) + '</select></label>' +
+        '<label>교육기관<select data-f="issuer"><option value="">비우면 교육지원청</option>' + opt(orgs.map(function (o) { return [o, o]; }), g.issuer) + '</select></label>' +
         '<label>이수시간<input type="text" data-f="hours" value="' + esc(g.hours) + '" placeholder="예: 2시간"></label>' +
         '<label>이수 공문 (이수증번호 칸)<input type="text" data-f="no" value="' + esc(g.no) + '" placeholder="예: 행정지원과-5049(2025. 4. 2.)"></label></div>' +
         '<label class="fnames" style="margin-top:8px">이수자 명단 — 공문 명단의 <b>부서명 · 직위 · 이름</b>을 복사해 붙여 넣기 <span class="why">(' + n + '명)</span><textarea data-f="names" spellcheck="false" placeholder="행정지원과	주무관	홍길동">' + esc(g.names) + '</textarea></label></div>';
@@ -1155,15 +1175,22 @@ if (typeof module !== 'undefined') module.exports = XW;
       });
     });
     // 대면교육 이수자 명단(공문): 명단 사람의 그 교육은 대면으로 (이수증보다 먼저)
-    var faceDone = 0, faceMiss = [];
+    var faceDone = 0, faceMiss = [], faceBlank = [];
     faceGroups.forEach(function (g, gi) {
       if (!g.key || !have[g.key]) return;
-      var d = dayText(g.day);
-      EDU.parseRoster(g.names).forEach(function (pp, pi) {
+      var d = dayText(g.day), df = faceDefaults(g), list = EDU.parseRoster(g.names);
+      if (list.length) {
+        var blank = [];
+        if (!g.day) blank.push('교육 실시일(교육기간·수료일)');
+        if (!(g.hours || '').trim()) blank.push('이수시간');
+        if (!(g.no || '').trim()) blank.push('이수 공문');
+        if (blank.length) faceBlank.push('명단 ' + (gi + 1) + '(' + RULE_LABEL(g.key) + '): ' + blank.join('·'));
+      }
+      list.forEach(function (pp, pi) {
         var m = EDU.matchPerson(people, { name: pp.name, rank: pp.rank, org: pp.dept });
         if (m.st !== 'ok') { if (faceMiss.indexOf(pp.name) < 0) faceMiss.push(pp.name); return; }
-        rec[m.p.id + '|' + g.key] = { id: 'f' + gi + '_' + pi, face: true, file: '대면교육 명단 ' + (gi + 1), keys: [g.key], issuer: g.issuer, method: '대면', lines: [], person: m.p,
-          c: { name: pp.name, rank: pp.rank, dept: pp.dept, org: pp.dept, course: g.course, periodText: d, period: d, method: '대면', issuer: g.issuer, no: g.no, date: d, hours: g.hours, sheets: [g.key] } };
+        rec[m.p.id + '|' + g.key] = { id: 'f' + gi + '_' + pi, face: true, file: '대면교육 명단 ' + (gi + 1), keys: [g.key], issuer: df.issuer, method: '대면', lines: [], person: m.p,
+          c: { name: pp.name, rank: pp.rank, dept: pp.dept, org: pp.dept, course: df.course, periodText: d, period: d, method: '대면', issuer: df.issuer, no: g.no, date: d, hours: g.hours, sheets: [g.key] } };
         faceDone++;
       });
     });
@@ -1220,7 +1247,7 @@ if (typeof module !== 'undefined') module.exports = XW;
         });
       });
     });
-    M = { faceDone: faceDone, faceMiss: faceMiss, faceFix: faceFix, spread: spread, kept: kept, needDept: needDept, only: only, outside: outside, roster: roster, people: people, extras: extras, rec: rec, had: had, dups: dups, noSheet: noSheet, amb: amb, noName: noName, sheets: sheets, jobs: jobs };
+    M = { faceBlank: faceBlank, faceDone: faceDone, faceMiss: faceMiss, faceFix: faceFix, spread: spread, kept: kept, needDept: needDept, only: only, outside: outside, roster: roster, people: people, extras: extras, rec: rec, had: had, dups: dups, noSheet: noSheet, amb: amb, noName: noName, sheets: sheets, jobs: jobs };
   }
   function dateKey(t) { var d = EDU.datesIn(t)[0]; return d ? d.y * 10000 + d.m * 100 + d.d : 0; }
   /* 서울특별시교육청교육연수원 법정묶음 과정의 교육내용별 이수인정 시간 (서식에 없는 교육활동침해·학교폭력·학생도박예방은 뺌) */
@@ -1331,6 +1358,7 @@ if (typeof module !== 'undefined') module.exports = XW;
     if (M.outside.length) info.push('명단에 없는 사람의 이수증 <b>' + M.outside.length + '장</b>은 뺐습니다: ' + M.outside.slice(0, 6).map(function (ce) { return esc(ce.c.name); }).join(', ') + (M.outside.length > 6 ? ' 외' : '') + ' (우리 부서만 남기기)');
     if (M.spread) info.push('손으로 적어 둔 법정묶음 내용을 같은 사람의 다른 교육 시트 <b>' + M.spread + '곳</b>에도 채웁니다 (빈 칸만, 이수시간은 시트마다 묶음 시간표대로).');
     if (M.faceDone) info.push('대면교육 이수자 명단으로 <b>' + M.faceDone + '명</b>을 대면으로 채웁니다.');
+    if (M.faceBlank.length) info.push('대면교육 명단에서 비워 둔 칸은 결과에도 빈칸으로 둡니다: ' + M.faceBlank.map(esc).join(' / ') + ' (과정명은 교육 이름, 교육기관은 서식 목록의 교육지원청으로 채움)');
     if (M.faceMiss.length) info.push('대면교육 명단에 있지만 우리 부서 명단에서 찾지 못한 사람 <b>' + M.faceMiss.length + '명</b>: ' + M.faceMiss.slice(0, 8).map(esc).join(', ') + (M.faceMiss.length > 8 ? ' 외' : '') + ' (다른 부서이거나 이름이 다름)');
     if (M.faceFix.length) info.push('장애인식개선교육은 <b>대면교육 우선</b>인데, 대면 이수증이 있는 사람의 줄이 이미 사이버교육으로 적혀 있습니다 (손으로 적은 칸은 그대로 둠): <b>' + M.faceFix.map(esc).join(', ') + '</b> — 서식에서 그 줄을 지우고 다시 만들거나 직접 고치세요.');
     if (M.kept.length) info.push('이미 적어 둔 내용과 이수증이 다른 줄 <b>' + M.kept.length + '개</b>는 적어 둔 내용을 그대로 뒀습니다 (빈 칸만 채움): ' + M.kept.slice(0, 6).map(esc).join(', ') + (M.kept.length > 6 ? ' 외' : ''));
@@ -1492,13 +1520,19 @@ if (typeof module !== 'undefined') module.exports = XW;
   var rt = null;
   $('roster').addEventListener('input', function () { clearTimeout(rt); rt = setTimeout(refresh, 250); });
   $('faceAdd').addEventListener('click', function () {
-    faceGroups.push({ key: faceGroups.length ? 'anticor' : 'disabAware', course: '', day: '', issuer: '', hours: '', no: '', names: '' });
+    var used = faceGroups.map(function (g) { return g.key; });
+    faceGroups.push(faceNew(FACE_KEYS.filter(function (k) { return used.indexOf(k) < 0; })[0] || 'disabAware'));
     faceRender(); refresh();
   });
   var ft = null;
   function faceInput(e) {
     var box = e.target.closest('[data-g]'), f = e.target.getAttribute('data-f'); if (!box || !f) return;
-    faceGroups[+box.getAttribute('data-g')][f] = e.target.value;
+    var g = faceGroups[+box.getAttribute('data-g')];
+    if (f === 'key') {                        // 교육을 바꾸면 그 교육에 기억해 둔 값으로 (명단은 그대로)
+      var nm = g.names; faceGroups[+box.getAttribute('data-g')] = g = faceNew(e.target.value); g.names = nm; faceRender(); refresh(); return;
+    }
+    g[f] = e.target.value;
+    if (f !== 'names') faceRemember(g);
     if (f === 'names') { var c = box.querySelector('.why'); if (c) c.textContent = '(' + EDU.parseRoster(e.target.value).length + '명)'; }
     clearTimeout(ft); ft = setTimeout(refresh, 300);
   }
