@@ -200,7 +200,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
       <li><b>다른 교육·다른 부서 사람 이수증</b>이 섞여 있어도 알아서 걸러 냅니다.</li>
       <li>PDF가 아닌 파일(한글·사진 등)은 건너뜁니다.</li>
       <li>법정묶음 이수증 한 장은 들어 있는 교육 시트마다 채웁니다.</li>
-      <li><b>대면교육 이수자 명단</b>(명단 엑셀이나 공문 PDF)도 같이 넣으면, 이수증이 아닌 걸 알아보고 아래 「대면교육 이수자 명단」으로 옮깁니다.</li>
+      <li><b>대면교육 이수자 명단</b>(명단 엑셀이나 공문 PDF·ODT·한글 hwpx)도 같이 넣으면, 이수증이 아닌 걸 알아보고 아래 「대면교육 이수자 명단」으로 옮깁니다.</li>
     </ul>
     <div class="zone" id="drop" tabindex="0" role="button" aria-label="이수증 폴더 또는 PDF 선택">
       <strong>이수증 폴더를 여기로 끌어다 놓으세요</strong>
@@ -221,7 +221,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
     <div id="faceGroups"></div>
     <button type="button" id="faceAdd">+ 대면교육 명단 추가</button>
     <p class="hint" id="faceMsg"></p>
-    <input type="file" id="faceFile" accept=".xlsx,.xls,.xlsm,.csv" class="hidden">
+    <input type="file" id="faceFile" accept=".xlsx,.xls,.xlsm,.csv,.odt,.hwpx" class="hidden">
   </details>
 </section>
 
@@ -252,7 +252,7 @@ table.list select,table.list input[type=text]{font:inherit;font-size:13px;paddin
 </section>
 
 <input type="file" id="tplInput" accept=".xlsx,.xlsm" class="hidden">
-<input type="file" id="fileInput" multiple accept=".pdf,application/pdf,.xlsx,.xls,.csv" class="hidden">
+<input type="file" id="fileInput" multiple accept=".pdf,application/pdf,.xlsx,.xls,.csv,.odt,.hwpx" class="hidden">
 <input type="file" id="dirInput" webkitdirectory multiple class="hidden">
 
 <footer>
@@ -1049,7 +1049,7 @@ if (typeof module !== 'undefined') module.exports = XW;
         '<label>교육기관<select data-f="issuer"><option value="">비우면 교육지원청</option>' + opt(orgs.map(function (o) { return [o, o]; }), g.issuer) + '</select></label>' +
         '<label>이수시간<input type="text" data-f="hours" value="' + esc(g.hours) + '" placeholder="예: 2시간"></label>' +
         '<label>이수 공문 (이수증번호 칸)<input type="text" data-f="no" value="' + esc(g.no) + '" placeholder="예: 행정지원과-5049(2025. 4. 2.)"></label></div>' +
-        '<label class="fnames" style="margin-top:8px">이수자 명단 — 공문 명단의 <b>부서명 · 직위 · 이름</b>을 복사해 붙여 넣거나 <button type="button" class="plain" data-file="' + i + '">명단 엑셀 파일 넣기</button> <span class="why">(' + n + '명)</span><textarea data-f="names" spellcheck="false" placeholder="행정지원과	주무관	홍길동">' + esc(g.names) + '</textarea></label></div>';
+        '<label class="fnames" style="margin-top:8px">이수자 명단 — 공문 명단의 <b>부서명 · 직위 · 이름</b>을 복사해 붙여 넣거나 <button type="button" class="plain" data-file="' + i + '">명단 파일 넣기(엑셀·ODT·hwpx)</button> <span class="why">(' + n + '명)</span><textarea data-f="names" spellcheck="false" placeholder="행정지원과	주무관	홍길동">' + esc(g.names) + '</textarea></label></div>';
     }).join('');
   }
   function dayText(v) { var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || ''); return m ? (+m[1]) + '.' + (+m[2]) + '.' + (+m[3]) + '.' : ''; }
@@ -1113,7 +1113,9 @@ if (typeof module !== 'undefined') module.exports = XW;
     var todo = Array.prototype.filter.call(list, function (f) { return /\.pdf$/i.test(f.name) && !seen[f.name + '|' + f.size]; });
     // 엑셀·CSV는 대면교육 이수자 명단일 수 있음 → 이름(성명) 칸이 있으면 명단으로
     var sheetsIn = Array.prototype.filter.call(list, function (f) { return /\.(xlsx|xls|xlsm|csv)$/i.test(f.name) && !/^~\$/.test(f.name) && !seen[f.name + '|' + f.size]; });
-    var skipped = Array.prototype.filter.call(list, function (f) { return !/\.(pdf|xlsx|xls|xlsm|csv)$/i.test(f.name) && !/^(\.|~\$|Thumbs\.db$|desktop\.ini$)/i.test(f.name); });
+    // 오픈오피스(.odt)·한글(.hwpx) 문서는 공문 이수자 명단일 수 있음 → 공문 PDF처럼 글자에서 이름을 찾음
+    var docsIn = Array.prototype.filter.call(list, function (f) { return /\.(odt|hwpx)$/i.test(f.name) && !/^~\$/.test(f.name) && !seen[f.name + '|' + f.size]; });
+    var skipped = Array.prototype.filter.call(list, function (f) { return !/\.(pdf|xlsx|xls|xlsm|csv|odt|hwpx)$/i.test(f.name) && !/^(\.|~\$|Thumbs\.db$|desktop\.ini$)/i.test(f.name); });
     if (skipped.length) bad.push('PDF가 아닌 파일 ' + skipped.length + '개는 건너뜀: ' + skipped.slice(0, 5).map(function (f) { return f.name; }).join(', ') + (skipped.length > 5 ? ' 외' : ''));
     $('srcName').textContent = '읽는 중… (' + todo.length + '개)'; $('srcLoaded').classList.remove('hidden');
     var chain = Promise.resolve();
@@ -1129,6 +1131,15 @@ if (typeof module !== 'undefined') module.exports = XW;
         var head = f.name + ' ' + wb.SheetNames.join(' ') + ' ' + first.join(' ');
         addFaceGroup(guessFaceKey(head), lines, f.name, { course: courseFrom(first) });
       });
+    });
+    docsIn.forEach(function (f) {
+      seen[f.name + '|' + f.size] = 1;
+      chain = chain.then(function () { return readBuf(f); }).then(docLines).then(function (all) {
+        if (!all.length) { bad.push(f.name + ' — 글자가 없는 문서'); return; }
+        var found = nameListFromText(all);
+        if (found.lines.length) { addFaceGroup(guessFaceKey(f.name + ' ' + all.join(' ')), found.lines, f.name, found.info); return; }
+        bad.push(f.name + ' — 명단에 있는 이름을 찾지 못함' + (tpl ? '' : ' (1번에 서식을 먼저 넣고 다시 넣으세요)'));
+      }).catch(function (e) { bad.push(f.name + ' — 열 수 없음 (' + (e && e.message ? e.message : e) + ')'); });
     });
     todo.forEach(function (f) {
       seen[f.name + '|' + f.size] = 1;
@@ -1152,6 +1163,45 @@ if (typeof module !== 'undefined') module.exports = XW;
       }).catch(function (e) { bad.push(f.name + ' — 열 수 없음 (' + (e && e.message ? e.message : e) + ')'); });
     });
     chain.then(refresh);
+  }
+  // .odt(content.xml)·.hwpx(Contents/section*.xml) 문서의 글자를 줄로: 문단은 한 줄, 표는 한 행을 한 줄로 (부서·이름이 같은 줄에 오게)
+  function docLines(buf) {
+    return JSZip.loadAsync(buf).then(function (z) {
+      var names = z.file('content.xml') ? ['content.xml'] : Object.keys(z.files).filter(function (n) { return /^Contents\/section\d+\.xml$/i.test(n); })
+        .sort(function (a, b) { return parseInt(a.replace(/\D/g, ''), 10) - parseInt(b.replace(/\D/g, ''), 10); });
+      if (!names.length) throw new Error('문서 내용을 찾지 못함');
+      return Promise.all(names.map(function (n) { return z.file(n).async('string'); }));
+    }).then(function (xmls) {
+      var out = [];
+      var text = function (el) {
+        var t = '';
+        Array.prototype.forEach.call(el.childNodes, function (c) {
+          if (c.nodeType === 3) { t += c.nodeValue; return; }
+          if (c.nodeType !== 1) return;
+          var ln = c.localName;
+          if (ln === 's') t += new Array((+c.getAttribute('text:c') || +c.getAttribute('c') || 1) + 1).join(' ');
+          else if (ln === 'tab' || ln === 'line-break' || ln === 'lineBreak') t += ' ';
+          else if (ln === 'tr' || ln === 'table-row') t += ' ' + rowText(c) + ' ';
+          else t += text(c) + (ln === 'p' || ln === 'h' ? ' ' : '');
+        });
+        return t;
+      };
+      var rowText = function (tr) {
+        return Array.prototype.filter.call(tr.childNodes, function (c) { return c.nodeType === 1 && (c.localName === 'tc' || c.localName === 'table-cell'); })
+          .map(function (c) { return text(c).replace(/\s+/g, ' ').trim(); }).filter(Boolean).join(' ');
+      };
+      var push = function (t) { t = String(t).replace(/\s+/g, ' ').trim(); if (t) out.push(t); };
+      var walk = function (el) {
+        var ln = el.localName;
+        if (ln === 'tr' || ln === 'table-row') { push(rowText(el)); return; }
+        // 한글 문서는 표가 문단 안에 들어 있음 → 표가 있는 문단은 안으로 들어가서 행마다 한 줄
+        if ((ln === 'p' || ln === 'h') && !el.getElementsByTagNameNS('*', 'tr').length && !el.getElementsByTagNameNS('*', 'table-row').length) { push(text(el)); return; }
+        if (ln === 't') { push(el.textContent); return; }
+        Array.prototype.forEach.call(el.childNodes, function (c) { if (c.nodeType === 1) walk(c); });
+      };
+      xmls.forEach(function (x) { walk(new DOMParser().parseFromString(x, 'application/xml').documentElement); });
+      return out;
+    });
   }
   // 명단 파일 이름·제목에서 교육 짐작 (대면 명단을 주로 쓰는 교육 먼저)
   function guessFaceKey(text) {
@@ -1177,7 +1227,7 @@ if (typeof module !== 'undefined') module.exports = XW;
       }
       seenN[n] = 1; out.push([p.dept || '', p.rank || '', p.name].join('\t'));
     });
-    var no = /([가-힣A-Za-z]+(?:과|팀|실|국|센터|지원청))\s*-\s*(\d+)\s*\(\s*(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})\s*\.?\s*\)/.exec(txt);
+    var no = /([가-힣A-Za-z]+(?:과|팀|실|국|관|센터|지원청))\s*-\s*(\d+)\s*\(\s*(\d{4})\s*\.\s*(\d{1,2})\s*\.\s*(\d{1,2})\s*\.?\s*\)/.exec(txt);
     if (no) info.no = no[1] + '-' + no[2] + '(' + no[3] + '. ' + (+no[4]) + '. ' + (+no[5]) + '.)';
     var dm = /교육\s*(?:일시|일자|기간|일)\s*[:：]?\s*(\d{4})\s*[.\-년]\s*(\d{1,2})\s*[.\-월]\s*(\d{1,2})([^\n]*)/.exec(txt);
     if (dm) {
@@ -1698,8 +1748,10 @@ if (typeof module !== 'undefined') module.exports = XW;
     var f = this.files[0], gi = faceFileFor; this.value = '';
     if (!f || !faceGroups[gi]) return;
     readBuf(f).then(function (buf) {
+      if (/\.(odt|hwpx)$/i.test(f.name)) return docLines(buf).then(function (all) { return nameListFromText(all).lines; }, function () { return []; });
       var wb = null; try { wb = XLSX.read(new Uint8Array(buf), { type: 'array' }); } catch (er) {}
-      var lines = wb ? readNameList(wb) : [];
+      return wb ? readNameList(wb) : [];
+    }).then(function (lines) {
       if (!lines.length) { $('faceMsg').textContent = f.name + ' — 「이름(성명)」 칸을 찾지 못했습니다. 명단을 복사해 붙여 넣어 주세요.'; return; }
       faceGroups[gi].names = (faceGroups[gi].names.trim() ? faceGroups[gi].names.trim() + '\n' : '') + lines.join('\n');
       $('faceMsg').textContent = f.name + '에서 ' + lines.length + '명을 읽었습니다.';
