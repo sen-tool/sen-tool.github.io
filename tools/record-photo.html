@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 이 사이트 안의 파일(글자 인식 엔진·한국어 자료)만 불러옴. 넣은 사진은 어디로도 보내지 않음 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; worker-src 'self' blob:; connect-src 'self' blob: data:; style-src 'unsafe-inline'; img-src data: blob:; form-action 'none'; base-uri 'none'">
+<title>기록물 실물목록 만들기</title>
+<style>
+:root{
+  --teal:#3D5873; --teal-2:#2F4760; --mint:#EEF2F6; --mint-2:#DCE4EC;
+  --ink:#2B3137; --sub:#5F6B73; --rule:#E3E0D9; --bg:#f6f6f4; --paper:#FFFFFF;
+  --ok:#1C7A50; --ok-bg:#E7F5EC; --warn:#8A5A00; --warn-bg:#FFF4DE; --err:#B23A3A; --err-bg:#FDEDED;
+  --r:10px; --shadow:0 1px 2px rgba(22,36,44,.05), 0 6px 18px rgba(22,36,44,.05);
+}
+*{box-sizing:border-box}
+html,body{margin:0;overflow-x:hidden;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased}
+body{font-family:"Pretendard Variable",Pretendard,"Malgun Gothic","맑은 고딕",sans-serif}
+.bar{background:#fff;border-bottom:1px solid var(--rule)}
+.bar::before{content:"";display:block;height:4px;background:linear-gradient(90deg,var(--teal) 0%,#7b93ad 55%,#b7c6d6 100%)}
+.bar-in{max-width:1180px;margin:0 auto;padding:14px 20px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.brand h1{margin:0;font-size:22px;letter-spacing:-0.5px}
+.brand .dept{display:block;font-size:12.5px;color:var(--sub);margin-top:1px}
+.badge{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--teal-2);background:var(--mint);border:1px solid var(--mint-2);border-radius:99px;padding:6px 13px;font-weight:600}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 20px 52px}
+.card{background:var(--paper);border:1px solid var(--rule);border-radius:var(--r);padding:18px 20px;min-width:0;box-shadow:var(--shadow);margin-bottom:16px}
+.card h2{margin:0 0 4px;font-size:16.5px;display:flex;align-items:center;gap:9px;letter-spacing:-0.3px;flex-wrap:wrap}
+.card h2 .n{width:26px;height:26px;border-radius:50%;background:var(--teal);color:#fff;display:inline-grid;place-items:center;font-size:13.5px;flex:none}
+.card h2 .cnt{font-size:13px;font-weight:600;color:var(--sub)}
+.lead{margin:0 0 12px;color:var(--sub);font-size:13.5px}
+.lead b{color:var(--ink)}
+.setup{display:grid;grid-template-columns:1.25fr 1fr;gap:16px;align-items:start}
+@media (max-width:860px){.setup{grid-template-columns:1fr} .setup .opts-card{order:-1}}
+.zone{border:2px dashed var(--mint-2);border-radius:var(--r);background:var(--mint);padding:20px 16px;text-align:center;cursor:pointer;min-height:150px;display:flex;flex-direction:column;justify-content:center;transition:background .15s,border-color .15s}
+.zone:hover,.zone.over{border-color:var(--teal);background:#e4ebf2}
+.zone strong{display:block;font-size:15.5px}
+.zone small{display:block;color:var(--sub);font-size:12.5px;margin-top:3px}
+.zone .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:12px}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;font-size:13.5px}
+.field > span{font-weight:700}
+.field small{color:var(--sub);font-size:12.5px}
+input[type=text],select{font:inherit;font-size:14px;padding:6px 9px;border:1px solid var(--rule);border-radius:8px;color:var(--ink);background:#fff;min-width:0}
+.dirs{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.dirs label{display:flex;gap:8px;align-items:flex-start;border:1px solid var(--rule);border-radius:8px;padding:8px 10px;cursor:pointer;font-size:13px;line-height:1.35}
+.dirs label:has(input:checked){border-color:var(--teal);background:var(--mint);box-shadow:0 0 0 2px var(--mint-2)}
+.dirs input{margin-top:2px}
+.dirs .ex{display:block;color:var(--sub);font-size:12px}
+.tips{margin:0;padding-left:18px;color:var(--sub);font-size:13px}
+.tips li{margin:2px 0}
+button,.btn{font:inherit;font-size:14px;border-radius:99px;border:1px solid var(--rule);background:#fff;color:var(--ink);padding:6px 14px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:5px;transition:background .13s,border-color .13s,color .13s}
+button:hover,.btn:hover{border-color:var(--teal);color:var(--teal)}
+button.solid{background:var(--teal);border-color:var(--teal);color:#fff;font-weight:700;padding:9px 20px}
+button.solid:hover{background:var(--teal-2);color:#fff}
+button.sm{font-size:12.5px;padding:3px 10px}
+button.plain{color:var(--sub)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible,.zone:focus-visible,td[contenteditable]:focus-visible{outline:3px solid #F5C518;outline-offset:2px}
+.hidden{display:none !important}
+.notice{border-radius:var(--r);padding:12px 14px;font-size:13.5px;margin-bottom:16px}
+.notice.warn{background:var(--warn-bg);border:1px solid #EBCE92;color:#5c3d00}
+.notice.err{background:var(--err-bg);border:1px solid #F0C4C4;color:#7a1f1f}
+.notice.ok{background:var(--ok-bg);border:1px solid #BEE0CC;color:#14563a}
+/* 사진 목록 */
+.photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.ph{border:1px solid var(--rule);border-radius:var(--r);overflow:hidden;background:#fff;display:flex;flex-direction:column}
+.ph .pic{position:relative;background:#eceae5;height:190px;display:grid;place-items:center;overflow:hidden;cursor:zoom-in}
+.ph .pic canvas{max-width:100%;max-height:190px;display:block}
+.ph .meta{padding:9px 10px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.ph .nm{font-weight:700;word-break:break-all;font-size:12.5px}
+.ph .st{font-size:12.5px;color:var(--sub)}
+.ph .st.ok{color:var(--ok)} .ph .st.err{color:var(--err)} .ph .st.run{color:var(--teal)}
+.ph .acts{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.ph .acts select{font-size:12.5px;padding:3px 6px}
+.prog{height:4px;background:var(--mint-2);border-radius:99px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--teal);width:0;transition:width .2s}
+/* 표 */
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.toolbar .sp{flex:1}
+.filters{display:flex;gap:6px;flex-wrap:wrap}
+.filters button[aria-pressed="true"]{background:var(--mint);border-color:var(--teal);color:var(--teal-2);font-weight:700}
+.tbl{max-height:640px;overflow:auto;border:1px solid var(--rule);border-radius:var(--r);background:var(--paper)}
+table.list{border-collapse:collapse;width:100%;font-size:13px;min-width:1320px}
+table.list th,table.list td{padding:5px 7px;border-bottom:1px solid #EDF1F3;text-align:left;vertical-align:middle}
+table.list th{position:sticky;top:0;background:#f6f6f4;font-weight:700;z-index:1;white-space:nowrap;font-size:12.5px}
+table.list td.num{color:var(--sub);text-align:center;width:34px}
+table.list td.snip{width:290px;padding:3px 6px}
+table.list td.snip canvas{display:block;max-width:280px;max-height:40px;border-radius:4px;border:1px solid var(--rule);cursor:zoom-in;background:#fff}
+table.list td.snip .none{font-size:11.5px;color:var(--sub)}
+table.list input[type=text],table.list select{width:100%;font-size:13px;padding:4px 6px;border-radius:6px}
+table.list td.l input{min-width:120px} table.list td.s input{min-width:84px} table.list td.k input{min-width:76px}
+table.list td.t input{min-width:290px} table.list td.d input{min-width:92px} table.list td.o select{min-width:72px} table.list td.m input{min-width:110px}
+table.list td.y input{width:64px} table.list td.q input{width:46px;text-align:center}
+table.list tr.chk td{background:#FFFBEF}
+table.list tr.chk td.num::after{content:"확인";display:block;font-size:10.5px;color:var(--warn);font-weight:700}
+table.list td.ops{white-space:nowrap}
+table.list td.ops button{padding:2px 8px;font-size:12px}
+.auto{color:#2F5D8F}
+.empty{padding:28px;text-align:center;color:var(--sub);font-size:13.5px}
+.hint{font-size:12.5px;color:var(--sub);margin:8px 0 0}
+.hint b{color:var(--ink)}
+/* 크게 보기 */
+.zoom{position:fixed;inset:0;background:rgba(20,24,28,.78);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px;cursor:zoom-out}
+.zoom canvas{max-width:96vw;max-height:90vh;background:#fff;border-radius:6px}
+.zoom .cap{position:fixed;top:12px;left:0;right:0;text-align:center;color:#fff;font-size:13px}
+footer{max-width:1180px;margin:0 auto;padding:0 20px 30px;color:var(--sub);font-size:12px}
+@media (max-width:600px){ .wrap{padding:14px 12px 40px} .card{padding:14px} .bar-in{padding:12px} }
+</style>
+</head>
+<body>
+<header class="bar"><div class="bar-in">
+  <div class="brand"><h1>기록물 실물목록 만들기</h1><span class="dept">바인더·문서철 사진 → 글자 읽기 → 기록물 대조표 실물목록</span></div>
+  <span class="badge" title="글자 인식은 이 브라우저 안에서 합니다">🔒 사진은 이 기기 밖으로 나가지 않아요</span>
+</div></header>
+
+<main class="wrap">
+  <div class="notice err hidden" id="fileNotice">이 도구는 <b>웹 주소(https://sen-tool.github.io/)에서 열어야</b> 글자를 읽을 수 있어요. 파일로 내려받아 열면 브라우저가 글자 인식 엔진을 막습니다.</div>
+
+  <div class="setup">
+    <section class="card">
+      <h2><span class="n">1</span>사진 넣기</h2>
+      <p class="lead">캐비닛·선반의 바인더 등을 찍은 사진을 넣으세요. <b>여러 장을 한꺼번에</b> 넣어도 차례로 읽어요.</p>
+      <div class="zone" id="zone" tabindex="0" role="button" aria-label="사진 고르기">
+        <strong>사진을 여기에 끌어 놓기</strong>
+        <small>JPG·PNG · 휴대폰에서는 바로 찍어서 넣을 수 있어요</small>
+        <div class="row">
+          <button type="button" class="solid" id="pickBtn">사진 고르기</button>
+          <button type="button" id="camBtn">📷 사진 찍기</button>
+        </div>
+      </div>
+      <input type="file" id="photoInput" accept="image/*" multiple class="hidden">
+      <input type="file" id="cameraInput" accept="image/*" capture="environment" class="hidden">
+      <p class="hint" id="engineMsg">처음 한 번은 글자 인식 자료(약 10MB)를 불러와서 조금 걸려요.</p>
+    </section>
+
+    <section class="card opts-card">
+      <h2>넣기 전에 정하기</h2>
+      <label class="field"><span>보관위치</span>
+        <input type="text" id="locInput" list="locList" placeholder="예: 사무실 캐비닛A, 서고 2번 선반" autocomplete="off">
+        <small>이번에 넣는 사진들의 줄에 들어가요. 사진마다 나중에 바꿀 수 있어요.</small>
+      </label>
+      <datalist id="locList"></datalist>
+      <div class="field"><span>글자 방향</span>
+        <div class="dirs" id="dirs">
+          <label><input type="radio" name="dir" value="auto" checked><span>자동<span class="ex">방향을 바꿔 가며 가장 잘 읽히는 쪽</span></span></label>
+          <label><input type="radio" name="dir" value="vert"><span>세로쓰기<span class="ex">글자가 위에서 아래로 똑바로 쌓임</span></span></label>
+          <label><input type="radio" name="dir" value="cw"><span>누운 글씨 ↻<span class="ex">고개를 왼쪽으로 꺾어야 읽힘</span></span></label>
+          <label><input type="radio" name="dir" value="ccw"><span>누운 글씨 ↺<span class="ex">고개를 오른쪽으로 꺾어야 읽힘</span></span></label>
+          <label><input type="radio" name="dir" value="horiz"><span>가로 글씨<span class="ex">상자 앞면·표지처럼 바로 읽힘</span></span></label>
+        </div>
+      </div>
+      <ul class="tips">
+        <li>한 장에 <b>바인더 5~10권</b> 정도, 글씨가 화면에 꽉 차게 찍으면 잘 읽혀요.</li>
+        <li>정면에서, 빛 반사 없이 찍어 주세요. 손글씨·바랜 라벨은 가까이서 따로.</li>
+      </ul>
+    </section>
+  </div>
+
+  <section class="card hidden" id="photoCard">
+    <h2><span class="n">2</span>읽은 사진 <span class="cnt" id="photoCnt"></span></h2>
+    <p class="lead">사진 위 <b>파란 상자</b>가 글자를 찾은 곳이에요. 상자가 없는 바인더는 못 읽은 것이니 표에서 「+ 줄 추가」로 넣어 주세요. 엉뚱하게 읽혔으면 방향을 바꿔 「다시 읽기」.</p>
+    <div class="photos" id="photos"></div>
+  </section>
+
+  <section class="card" id="tableCard">
+    <h2><span class="n">3</span>실물목록 확인·고치기 <span class="cnt" id="rowCnt"></span></h2>
+    <p class="lead">왼쪽 그림과 비교해 <b>틀린 글자만 고치세요.</b> 제목을 고치면 연도·학교명·키워드·문서종류가 다시 나뉘어요(직접 고친 칸은 그대로). 노란 줄은 확인이 필요한 줄이에요.</p>
+    <div class="toolbar">
+      <div class="filters" role="group" aria-label="보기">
+        <button type="button" class="sm" data-f="all" aria-pressed="true">전체</button>
+        <button type="button" class="sm" data-f="chk" aria-pressed="false">확인 필요만</button>
+      </div>
+      <button type="button" class="sm" id="addRow">+ 줄 추가</button>
+      <span class="sp"></span>
+      <button type="button" id="copyBtn">표 복사 (대조표에 붙여넣기)</button>
+      <button type="button" class="solid" id="xlsxBtn">엑셀 파일로 내려받기</button>
+      <button type="button" class="plain sm" id="clearBtn">모두 지우기</button>
+    </div>
+    <div class="tbl"><table class="list" id="tbl">
+      <thead><tr><th>#</th><th>사진에서 읽은 곳</th><th>보관위치</th><th>생산연도</th><th>학교명</th><th>검색키워드</th><th>실물 제목 (바인더 표기 그대로)</th><th>문서종류</th><th>권수</th><th>원본/사본</th><th>메모</th><th></th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table><div class="empty" id="empty">아직 읽은 줄이 없어요. 위에 사진을 넣으세요.</div></div>
+    <datalist id="kindList"><option value="준공도면"><option value="설계도면"><option value="설계보고서"><option value="준공보고서"><option value="감리보고서"><option value="계약서류"><option value="사진대지"><option value="기타"></datalist>
+    <p class="hint" id="copyMsg"><b>대조표에 넣는 법:</b> 「표 복사」 → 기록물 대조표의 <b>실물목록 시트 B열 첫 빈 칸</b>(보관위치)을 누르고 Ctrl+V. 또는 엑셀로 내려받아 같은 자리에 붙여넣기. 대조표 양식이 없으면 <a href="../samples/기록물_대조표_양식.xlsx" download>여기서 받기</a>.</p>
+    <p class="hint">고친 내용은 이 브라우저에 저장돼서, 창을 닫았다 열어도 이어서 할 수 있어요(사진은 저장하지 않음). 공용 PC라면 다 쓴 뒤 「모두 지우기」.</p>
+  </section>
+</main>
+<footer>글자 인식: tesseract.js (Apache-2.0) · 한국어 자료: tessdata_best · 모두 이 사이트 안에서 불러오며 사진을 보내지 않습니다. 결과는 반드시 확인 후 사용하세요.</footer>
+
+<script src="ocr/tesseract.min.js"></script>
+<script src="ocr/xlsx.mini.min.js"></script>
+<script>
+/* ===== 제목 나누기: 연도 · 학교명 · 검색키워드 · 문서종류 ===== */
+var PARSE = (function () {
+  // 공사 종류(먼저) → 장소(나중). 제목에서 먼저 나오는 것을 고름
+  var WORK = ['석면','환기','냉난방','방수','창호','도장','내진','단열','공기순환','공기청정','전기','소방','승강기','엘리베이터','조명','LED','바닥','천장','칠판','담장','놀이시설','인조잔디','태양광','배수','급수','위생','증축','신축','개축','리모델링','철거','그린스마트','공간혁신','방음','차양','보수','수선','개선'];
+  var PLACE = ['외벽','지붕','옥상','급식실','화장실','교실','강당','체육관','도서관','과학실','복도','계단','현관','운동장','주차장','관사','교무실','행정실'];
+  var KINDS = [['준공도면',/준공\s*도면/],['설계도면',/(설계|실시|시공)\s*도면/],['준공보고서',/준공\s*(보고|검사)/],['설계보고서',/설계\s*(보고|설명)|설계서/],
+               ['감리보고서',/감리/],['계약서류',/계약|내역서|시방서|산출/],['사진대지',/사진/],['준공도면',/도면/]];
+  function compact(s) { return String(s || '').replace(/\s+/g, ''); }
+  function year(t) {
+    var m = String(t).match(/(?:^|[^0-9])((?:19|20)\d{2})(?![0-9])/);
+    if (m) return m[1];
+    m = String(t).match(/(?:^|[^0-9])'?(\d{2})\s*년/);          // '19년 · 19년도
+    return m ? '20' + m[1] : '';
+  }
+  function school(t) {
+    var s = compact(String(t).replace(/(?:19|20)\d{2}\s*(?:년도?|학년도)?/, '').replace(/^[^가-힣]+/, ''));
+    s = s.replace(/^(서울(특별시)?|서울시)/, '');
+    var re = /([가-힣]{1,10}?)(초등학교|중학교|고등학교|초|중|고)(?![가-힣]{0,1}학교)/g, m;
+    while ((m = re.exec(s))) {
+      if (m.index > 3) break;                                   // 학교명은 제목 앞쪽에만 있음
+      var name = m[1], suf = m[2];
+      if (/보$|감리보$/.test(name)) continue;                    // 「보고서」의 「고」
+      var short = suf === '초등학교' ? '초' : suf === '중학교' ? '중' : suf === '고등학교' ? '고' : suf;
+      return name + short;
+    }
+    m = s.match(/^([가-힣]{2,10}?(?:학교|유치원))/);              // 특수학교·유치원
+    return m ? m[1] : '';
+  }
+  function pick(list, t) {
+    var best = '', at = 1e9, s = compact(t);
+    list.forEach(function (k) { var i = s.indexOf(k); if (i >= 0 && i < at) { at = i; best = k; } });
+    return best;
+  }
+  function keyword(t, sch) {
+    var s = compact(t); if (sch) s = s.replace(compact(sch), '');
+    var w = pick(WORK.filter(function (k) { return k !== '보수' && k !== '수선' && k !== '개선'; }), s);
+    return w || pick(PLACE, s) || pick(['보수','수선','개선'], s);
+  }
+  function kind(t) { for (var i = 0; i < KINDS.length; i++) if (KINDS[i][1].test(t)) return KINDS[i][0]; return ''; }
+  function clean(t, vertical) {
+    var s = String(t || '').replace(/[|\[\]{}=_~`"“”‘’<>«»\\]/g, ' ');
+    if (vertical) {
+      s = s.replace(/\s+/g, '');
+      s = s.replace(/^((?:19|20)\d{2}(?:년도?)?)(?=[가-힣])/, '$1 ');
+    }
+    s = s.replace(/\s+/g, ' ').trim();
+    s = s.replace(/^[ㄱ-ㅣ\s.,·:;\-—–/]+|[ㄱ-ㅣ\s.,·:;\-—–/]+$/g, '');
+    return s.trim();
+  }
+  function useful(t) { return (String(t).match(/[가-힣0-9A-Za-z]/g) || []).length >= 3 && /[가-힣]/.test(t); }
+  function all(t) { var sc = school(t); return { year: year(t), school: sc, kw: keyword(t, sc), kind: kind(t) }; }
+  return { all: all, clean: clean, useful: useful };
+})();
+
+/* ===== 글자 인식: 이 브라우저 안에서만 (tesseract.js) ===== */
+var OCR = (function () {
+  var base = new URL('ocr/', location.href).href;
+  var workers = {}, onProg = null;
+  function get(lang) {
+    if (!workers[lang]) {
+      workers[lang] = Tesseract.createWorker(lang, 1, {
+        workerPath: base + 'worker.min.js', corePath: base, langPath: base + 'lang', workerBlobURL: false,
+        logger: function (m) { if (onProg && m.status === 'recognizing text') onProg(m.progress); }
+      }).catch(function (e) { delete workers[lang]; throw e; });
+    }
+    return workers[lang];
+  }
+  // 회전 + 회색조 + 대비 늘리기 + 크기 맞추기 (긴 쪽 약 2400px)
+  function prep(img, rot, target) {
+    var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+    var long = Math.max(w, h), sc = Math.min(2, (target || 2400) / long);
+    var sw = Math.round(w * sc), sh = Math.round(h * sc);
+    var c = document.createElement('canvas'), x = c.getContext('2d');
+    var turn = rot === 'cw' || rot === 'ccw';
+    c.width = turn ? sh : sw; c.height = turn ? sw : sh;
+    x.imageSmoothingQuality = 'high';
+    if (rot === 'cw') { x.translate(c.width, 0); x.rotate(Math.PI / 2); }
+    if (rot === 'ccw') { x.translate(0, c.height); x.rotate(-Math.PI / 2); }
+    x.drawImage(img, 0, 0, sw, sh);
+    x.setTransform(1, 0, 0, 1, 0, 0);
+    var d = x.getImageData(0, 0, c.width, c.height), p = d.data, n = p.length / 4, hist = new Uint32Array(256), g = new Uint8ClampedArray(n);
+    for (var i = 0, j = 0; i < n; i++, j += 4) { var v = (p[j] * 299 + p[j + 1] * 587 + p[j + 2] * 114) / 1000 | 0; g[i] = v; hist[v]++; }
+    var lo = 0, hi = 255, acc = 0, cut = n * 0.01;
+    for (lo = 0; lo < 255; lo++) { acc += hist[lo]; if (acc > cut) break; }
+    for (acc = 0, hi = 255; hi > 0; hi--) { acc += hist[hi]; if (acc > cut) break; }
+    var span = Math.max(1, hi - lo);
+    for (i = 0, j = 0; i < n; i++, j += 4) { var q = (g[i] - lo) * 255 / span; p[j] = p[j + 1] = p[j + 2] = q; }
+    x.putImageData(d, 0, 0);
+    return c;
+  }
+  function lines(data) {
+    var out = [];
+    (data.blocks || []).forEach(function (b) { (b.paragraphs || []).forEach(function (pg) { (pg.lines || []).forEach(function (l) { out.push({ text: l.text, conf: l.confidence, bbox: l.bbox }); }); }); });
+    return out;
+  }
+  function run(img, rot, progress, psm, target) {
+    var vertical = rot === 'vert', lang = vertical ? 'kor_vert' : 'kor';
+    var canvas = prep(img, vertical ? 'none' : rot, target);
+    return get(lang).then(function (w) {
+      onProg = progress;
+      return w.setParameters({ tessedit_pageseg_mode: psm || (vertical ? '3' : '4') }).then(function () {
+        return w.recognize(canvas, {}, { blocks: true });
+      });
+    }).then(function (r) {
+      var ls = lines(r.data).map(function (l) { l.clean = PARSE.clean(l.text, vertical); return l; })
+        .filter(function (l) { return PARSE.useful(l.clean) && !(l.conf < 30 && l.clean.length < 6); });
+      return finish({ rot: rot, vertical: vertical, canvas: canvas, lines: ls });
+    });
+  }
+  function weight(l) { return Math.max(0, l.conf) * (l.clean.match(/[가-힣0-9]/g) || []).length; }
+  function finish(r) {
+    // 왼쪽 바인더부터: 세로쓰기는 x, ↻는 위→아래, ↺는 아래→위, 가로는 위→아래
+    r.lines.sort(function (a, b) {
+      if (r.vertical) return a.bbox.x0 - b.bbox.x0;
+      if (r.rot === 'ccw') return b.bbox.y0 - a.bbox.y0;
+      return a.bbox.y0 - b.bbox.y0;
+    });
+    r.score = r.lines.reduce(function (s, l) { return s + weight(l); }, 0);
+    r.mean = r.lines.length ? r.lines.reduce(function (s, l) { return s + l.conf; }, 0) / r.lines.length : 0;
+    return r;
+  }
+  // 크기를 바꿔 한 번 더 읽어 합침 (줄 하나를 통째로 놓치는 일이 줄어듦)
+  function merge(a, b) {
+    var f = a.canvas.width / b.canvas.width;
+    var sc = function (bb) { return { x0: bb.x0 * f, y0: bb.y0 * f, x1: bb.x1 * f, y1: bb.y1 * f }; };
+    var area = function (bb) { return Math.max(0, bb.x1 - bb.x0) * Math.max(0, bb.y1 - bb.y0); };
+    var inter = function (p, q) { return area({ x0: Math.max(p.x0, q.x0), y0: Math.max(p.y0, q.y0), x1: Math.min(p.x1, q.x1), y1: Math.min(p.y1, q.y1) }); };
+    var out = a.lines.slice();
+    b.lines.forEach(function (l) {
+      var m = { text: l.text, clean: l.clean, conf: l.conf, bbox: sc(l.bbox) };
+      var hit = -1;
+      out.forEach(function (o, i) { if (hit < 0 && inter(o.bbox, m.bbox) > 0.3 * Math.min(area(o.bbox), area(m.bbox))) hit = i; });
+      if (hit < 0) out.push(m);
+      else if (weight(m) > weight(out[hit]) * 1.1) out[hit] = m;        // 더 길고 또렷하게 읽힌 쪽
+    });
+    a.lines = out;
+    return finish(a);
+  }
+  function twice(img, rot, progress, first) {
+    var p1 = first ? Promise.resolve(first) : run(img, rot, function (p) { progress(p / 2); }, null, 1800);
+    return p1.then(function (a) {
+      return run(img, rot, function (p) { progress(0.5 + p / 2); }, null, 2600).then(function (b) { return merge(a, b); });
+    });
+  }
+  // 자동: 세로쓰기부터 해 보고, 잘 안 읽히면 방향을 바꿔 가장 많이·정확히 읽힌 쪽
+  function auto(img, progress) {
+    var tries = ['vert', 'cw', 'ccw', 'horiz'], best = null, k = 0;
+    function next() {
+      if (k >= tries.length) return Promise.resolve(best);
+      var rot = tries[k], at = k++;
+      return run(img, rot, function (p) { progress((at + p) / tries.length * 0.6); }, null, 1800).then(function (r) {
+        if (!best || r.score > best.score) best = r;
+        if (r.lines.length >= 1 && r.mean >= 80) return r;   // 충분히 잘 읽힘 → 그만
+        return next();
+      });
+    }
+    return next().then(function (r) {
+      return twice(img, r.rot, function (p) { progress(0.6 + p * 0.4); }, r);
+    });
+  }
+  return { lines: lines, prep: prep, run: run, twice: twice, auto: auto, warm: function () { return get('kor_vert'); } };
+})();
+
+/* ===== 화면 ===== */
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  var KEY = 'seomu.recordPhoto.v1', LOCKEY = 'seomu.recordPhoto.locs';
+  var photos = [], rows = [], seq = 1, filter = 'all', queue = Promise.resolve();
+  var DIRNAME = { auto: '자동', vert: '세로쓰기', cw: '누운 글씨 ↻', ccw: '누운 글씨 ↺', horiz: '가로 글씨' };
+
+  if (location.protocol === 'file:') { $('fileNotice').classList.remove('hidden'); }
+
+  /* --- 저장 (이 브라우저에만, 사진은 빼고) --- */
+  function save() {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(rows.map(function (r) {
+        var o = {}; Object.keys(r).forEach(function (k) { if (k !== 'snip') o[k] = r[k]; }); return o;
+      })));
+    } catch (e) {}
+  }
+  function load() {
+    try {
+      var a = JSON.parse(localStorage.getItem(KEY) || '[]');
+      if (Array.isArray(a)) rows = a.map(function (r) { r.snip = null; r.photo = null; return r; });
+      rows.forEach(function (r) { seq = Math.max(seq, (r.id || 0) + 1); });
+    } catch (e) { rows = []; }
+  }
+  function locs() { try { return JSON.parse(localStorage.getItem(LOCKEY) || '[]'); } catch (e) { return []; } }
+  function rememberLoc(v) {
+    v = String(v || '').trim(); if (!v) return;
+    var a = locs().filter(function (x) { return x !== v; }); a.unshift(v);
+    try { localStorage.setItem(LOCKEY, JSON.stringify(a.slice(0, 30))); } catch (e) {}
+    drawLocs();
+  }
+  function drawLocs() {
+    var set = {}; locs().forEach(function (x) { set[x] = 1; }); rows.forEach(function (r) { if (r.loc) set[r.loc] = 1; });
+    $('locList').innerHTML = Object.keys(set).map(function (x) { return '<option value="' + esc(x) + '">'; }).join('');
+  }
+
+  /* --- 줄 만들기 --- */
+  function snipOf(canvas, b, vertical) {
+    var pad = 6, x0 = Math.max(0, b.x0 - pad), y0 = Math.max(0, b.y0 - pad), x1 = Math.min(canvas.width, b.x1 + pad), y1 = Math.min(canvas.height, b.y1 + pad);
+    var w = x1 - x0, h = y1 - y0; if (w < 2 || h < 2) return null;
+    var c = document.createElement('canvas'), x = c.getContext('2d');
+    var lim = 900, sc = Math.min(1, lim / Math.max(w, h));
+    if (vertical && h > w * 2) {   // 세로쓰기: 글자 사이(잉크가 가장 적은 줄)에서 잘라 가로로 늘어놓음 — 빠지는 부분 없이 전부
+      var bw = b.x1 - b.x0, ix0 = Math.round(b.x0 + bw * 0.15), iw = Math.max(1, Math.round(bw * 0.7));
+      var px = canvas.getContext('2d').getImageData(ix0, y0, iw, h).data, ink = new Float32Array(h);
+      for (var yy = 0; yy < h; yy++) { var k = 0; for (var xx = 0; xx < iw; xx++) if (px[(yy * iw + xx) * 4] < 120) k++; ink[yy] = k; }
+      // 글자 안의 좁은 틈(급 = 그 + ㅂ)이 아니라 글자 사이의 넓은 틈에서 자름
+      var blank = function (t) { return ink[t] <= Math.max(1, iw * 0.03); }, step = Math.max(8, bw * 1.05), cuts = [0], cur = 0;
+      while (cur + step * 1.5 < h) {
+        var lo = Math.round(cur + step * 0.5), hi = Math.min(h - 1, Math.round(cur + step * 1.5)), best = -1, bestLen = -1, t = lo;
+        while (t <= hi) {
+          if (!blank(t)) { t++; continue; }
+          var s0 = t; while (t <= hi && blank(t)) t++;
+          var len = t - s0, mid = Math.round((s0 + t - 1) / 2);
+          if (len > bestLen || (len === bestLen && Math.abs(mid - cur - step) < Math.abs(best - cur - step))) { bestLen = len; best = mid; }
+        }
+        if (best < 0) { best = lo; for (t = lo; t <= hi; t++) if (ink[t] < ink[best]) best = t; }
+        cuts.push(best); cur = best;
+      }
+      cuts.push(h);
+      var th = 0; for (var i = 0; i + 1 < cuts.length; i++) th = Math.max(th, cuts[i + 1] - cuts[i]);
+      var tw = w * (cuts.length - 1), s2 = Math.min(1, 2400 / tw, 110 / th);
+      c.width = Math.max(1, Math.round(tw * s2)); c.height = Math.max(1, Math.round(th * s2));
+      x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+      for (i = 0; i + 1 < cuts.length; i++) {
+        var sh = cuts[i + 1] - cuts[i];
+        x.drawImage(canvas, x0, y0 + cuts[i], w, sh, i * w * s2, (c.height - sh * s2) / 2, w * s2, sh * s2);
+      }
+    } else {
+      c.width = Math.round(w * sc); c.height = Math.round(h * sc);
+      x.drawImage(canvas, x0, y0, w, h, 0, 0, c.width, c.height);
+    }
+    return c;
+  }
+  function newRow(o) {
+    var r = { id: seq++, photo: null, snip: null, loc: '', year: '', school: '', kw: '', title: '', kind: '', qty: 1, orig: '', memo: '', conf: 100, hand: {} };
+    Object.keys(o || {}).forEach(function (k) { r[k] = o[k]; });
+    return r;
+  }
+  function fillAuto(r) {
+    var p = PARSE.all(r.title);
+    ['year', 'school', 'kw', 'kind'].forEach(function (k) { if (!r.hand[k]) r[k] = p[k]; });
+  }
+  // 세로쓰기는 띄어쓰기가 없어서 학교명 뒤만 띄움 (2019 가나초급식실… → 2019 가나초 급식실…)
+  function spaceAfter(t, sch) {
+    if (!sch) return t;
+    var i = t.indexOf(sch); if (i < 0) return t;
+    var e = i + sch.length; if (t.slice(e, e + 4) === '등학교') e += 4; else if (t.slice(e, e + 2) === '학교') e += 2;
+    return e < t.length && t[e] !== ' ' ? t.slice(0, e) + ' ' + t.slice(e) : t;
+  }
+  function needsCheck(r) { return r.conf < 70 || !r.year || !r.school || !r.title; }
+
+  /* --- 사진 넣기 --- */
+  function dir() { var c = document.querySelector('input[name=dir]:checked'); return c ? c.value : 'auto'; }
+  function addFiles(list) {
+    var files = Array.prototype.filter.call(list || [], function (f) { return /^image\//.test(f.type) || /\.(jpe?g|png|webp|bmp|gif|heic)$/i.test(f.name); });
+    if (!files.length) return;
+    var loc = $('locInput').value.trim(); rememberLoc(loc);
+    files.forEach(function (f) {
+      var ph = { id: 'p' + (seq++), name: f.name, file: f, loc: loc, dir: dir(), img: null, res: null, state: 'wait', prog: 0, msg: '차례를 기다리는 중' };
+      photos.push(ph); drawPhotos();
+      queue = queue.then(function () { return readPhoto(ph); });
+    });
+  }
+  function loadImg(file) {
+    return new Promise(function (ok, no) {
+      var url = URL.createObjectURL(file), im = new Image();
+      im.onload = function () { ok(im); };
+      im.onerror = function () { no(new Error(/heic/i.test(file.name) ? 'HEIC 사진은 이 브라우저에서 못 열어요. 휴대폰 설정에서 「호환성 우선(JPG)」으로 찍거나 JPG로 바꿔 넣어 주세요.' : '그림 파일을 열지 못했어요.')); };
+      im.src = url;
+    });
+  }
+  function readPhoto(ph) {
+    if (!photos.includes(ph)) return Promise.resolve();
+    ph.state = 'run'; ph.prog = 0; ph.msg = '글자 읽는 중…'; drawPhoto(ph);
+    var prog = function (p) { ph.prog = p; ph.msg = '글자 읽는 중… ' + Math.round(p * 100) + '%'; drawPhotoStatus(ph); };
+    return (ph.img ? Promise.resolve(ph.img) : loadImg(ph.file)).then(function (im) {
+      ph.img = im;
+      return ph.dir === 'auto' ? OCR.auto(im, prog) : OCR.twice(im, ph.dir, prog);
+    }).then(function (res) {
+      if (!photos.includes(ph)) return;
+      ph.res = res; ph.state = 'ok';
+      var at = rows.findIndex(function (r) { return r.photo === ph.id; });   // 다시 읽기면 이 사진 줄을 같은 자리에서 바꿈
+      rows = rows.filter(function (r) { return r.photo !== ph.id; });
+      var made = res.lines.map(function (l) {
+        var r = newRow({ photo: ph.id, loc: ph.loc, title: l.clean, conf: Math.round(l.conf), bbox: l.bbox });
+        r.snip = snipOf(res.canvas, l.bbox, res.vertical); fillAuto(r); if (res.vertical) { r.title = spaceAfter(r.title, r.school); } return r;
+      });
+      if (at < 0) rows = rows.concat(made); else rows.splice.apply(rows, [at, 0].concat(made));
+      ph.msg = made.length ? made.length + '줄 읽음 · ' + DIRNAME[res.rot] + (ph.dir === 'auto' ? ' (자동)' : '') : '글자를 찾지 못했어요. 방향을 바꿔 다시 읽거나 더 가까이 찍어 주세요.';
+      ph.state = made.length ? 'ok' : 'err';
+      save(); drawPhoto(ph); drawRows(); drawLocs();
+      $('engineMsg').textContent = '글자 인식 준비 완료 — 사진은 이 기기 안에서만 읽어요.';
+    }).catch(function (e) {
+      ph.state = 'err';
+      ph.msg = (e && e.message ? e.message : String(e)).slice(0, 160);
+      if (/Worker|importScripts|NetworkError|Failed to fetch|SecurityError/i.test(ph.msg)) {
+        ph.msg = '글자 인식 엔진을 불러오지 못했어요. 웹 주소(https://sen-tool.github.io/)에서 열었는지, 인터넷이 되는지 확인해 주세요.';
+      }
+      drawPhoto(ph);
+    });
+  }
+
+  /* --- 사진 목록 그리기 --- */
+  function drawPhotos() {
+    $('photoCard').classList.toggle('hidden', !photos.length);
+    $('photoCnt').textContent = photos.length ? photos.length + '장' : '';
+    var box = $('photos');
+    Array.prototype.forEach.call(box.children, function (el) { if (!photos.some(function (p) { return p.id === el.dataset.id; })) el.remove(); });
+    photos.forEach(function (ph) { if (!box.querySelector('[data-id="' + ph.id + '"]')) { var el = document.createElement('div'); el.className = 'ph'; el.dataset.id = ph.id; box.appendChild(el); drawPhoto(ph); } });
+  }
+  function overlay(ph, maxH) {
+    var src = ph.res ? ph.res.canvas : null; if (!src) return null;
+    var sc = Math.min(1, maxH / src.height, 1400 / src.width), c = document.createElement('canvas');
+    c.width = Math.round(src.width * sc); c.height = Math.round(src.height * sc);
+    var x = c.getContext('2d'); x.drawImage(src, 0, 0, c.width, c.height);
+    x.strokeStyle = '#1f6fd1'; x.lineWidth = Math.max(1.5, 3 * sc * (src.height / maxH));
+    ph.res.lines.forEach(function (l) { var b = l.bbox; x.strokeRect(b.x0 * sc, b.y0 * sc, (b.x1 - b.x0) * sc, (b.y1 - b.y0) * sc); });
+    return c;
+  }
+  function drawPhoto(ph) {
+    var el = $('photos').querySelector('[data-id="' + ph.id + '"]'); if (!el) return;
+    el.innerHTML = '<div class="pic" title="크게 보기"></div><div class="meta">' +
+      '<span class="nm">' + esc(ph.name) + '</span>' +
+      '<div class="prog"><i></i></div><span class="st"></span>' +
+      '<input type="text" class="loc" list="locList" placeholder="보관위치" value="' + esc(ph.loc) + '" aria-label="이 사진의 보관위치">' +
+      '<div class="acts"><select class="dir" aria-label="글자 방향">' + Object.keys(DIRNAME).map(function (k) { return '<option value="' + k + '"' + (k === ph.dir ? ' selected' : '') + '>' + DIRNAME[k] + '</option>'; }).join('') + '</select>' +
+      '<button type="button" class="sm re">다시 읽기</button><button type="button" class="sm plain del">빼기</button></div></div>';
+    var pic = el.querySelector('.pic');
+    var cv = overlay(ph, 380);
+    if (cv) pic.appendChild(cv);
+    else if (ph.file) { var im = new Image(); im.src = URL.createObjectURL(ph.file); im.style.maxWidth = '100%'; im.style.maxHeight = '190px'; pic.appendChild(im); }
+    pic.addEventListener('click', function () { var z = overlay(ph, 2000); if (z) zoom(z, ph.name); });
+    el.querySelector('.loc').addEventListener('change', function () {
+      var v = this.value.trim(); ph.loc = v; rememberLoc(v);
+      rows.forEach(function (r) { if (r.photo === ph.id && !r.hand.loc) r.loc = v; });
+      save(); drawRows();
+    });
+    el.querySelector('.dir').addEventListener('change', function () { ph.dir = this.value; });
+    el.querySelector('.re').addEventListener('click', function () {
+      if (ph.state === 'run' || ph.state === 'wait') return;
+      ph.state = 'wait'; ph.msg = '차례를 기다리는 중'; drawPhotoStatus(ph);
+      queue = queue.then(function () { return readPhoto(ph); });
+    });
+    el.querySelector('.del').addEventListener('click', function () {
+      var n = rows.filter(function (r) { return r.photo === ph.id; }).length;
+      if (n && !confirm('이 사진에서 읽은 ' + n + '줄도 표에서 지울까요?')) return;
+      photos = photos.filter(function (p) { return p !== ph; });
+      rows = rows.filter(function (r) { return r.photo !== ph.id; });
+      save(); drawPhotos(); drawRows();
+    });
+    drawPhotoStatus(ph);
+  }
+  function drawPhotoStatus(ph) {
+    var el = $('photos').querySelector('[data-id="' + ph.id + '"]'); if (!el) return;
+    var st = el.querySelector('.st'); st.textContent = ph.msg; st.className = 'st ' + ph.state;
+    el.querySelector('.prog').classList.toggle('hidden', ph.state !== 'run');
+    el.querySelector('.prog i').style.width = Math.round(ph.prog * 100) + '%';
+    var re = el.querySelector('.re'); re.disabled = ph.state === 'run' || ph.state === 'wait';
+  }
+  function zoom(canvas, cap) {
+    var z = document.createElement('div'); z.className = 'zoom';
+    z.innerHTML = '<div class="cap">' + esc(cap) + ' · 누르면 닫혀요</div>'; z.appendChild(canvas);
+    z.addEventListener('click', function () { z.remove(); });
+    document.addEventListener('keydown', function k(e) { if (e.key === 'Escape') { z.remove(); document.removeEventListener('keydown', k); } });
+    document.body.appendChild(z);
+  }
+
+  /* --- 표 --- */
+  var COLS = [['loc', 'l'], ['year', 'y'], ['school', 's'], ['kw', 'k'], ['title', 't'], ['kind', 'd'], ['qty', 'q'], ['orig', 'o'], ['memo', 'm']];
+  function drawRows() {
+    var tb = $('tbody'), shown = rows.filter(function (r) { return filter === 'all' || needsCheck(r); });
+    var nChk = rows.filter(needsCheck).length;
+    $('rowCnt').textContent = rows.length ? rows.length + '줄' + (nChk ? ' · 확인 필요 ' + nChk : '') : '';
+    $('empty').classList.toggle('hidden', !!shown.length);
+    $('empty').textContent = rows.length ? '확인이 필요한 줄이 없어요.' : '아직 읽은 줄이 없어요. 위에 사진을 넣으세요.';
+    tb.innerHTML = shown.map(function (r) {
+      var idx = rows.indexOf(r) + 1;
+      var cell = function (k, cls) {
+        var v = r[k] == null ? '' : r[k], auto = (k === 'year' || k === 'school' || k === 'kw' || k === 'kind') && !r.hand[k] && v !== '';
+        if (k === 'orig') return '<td class="' + cls + '"><select data-k="orig" aria-label="원본/사본"><option value=""></option>' + ['원본', '사본', '모름'].map(function (o) { return '<option' + (o === v ? ' selected' : '') + '>' + o + '</option>'; }).join('') + '</select></td>';
+        return '<td class="' + cls + '"><input type="text" data-k="' + k + '" value="' + esc(v) + '"' + (k === 'loc' ? ' list="locList"' : k === 'kind' ? ' list="kindList"' : '') + (auto ? ' class="auto" title="제목에서 자동으로 나눈 값"' : '') + '></td>';
+      };
+      return '<tr data-id="' + r.id + '"' + (needsCheck(r) ? ' class="chk" title="' + (r.conf < 70 ? '글자 인식이 흐릿함(' + r.conf + '). ' : '') + (!r.year ? '연도 없음. ' : '') + (!r.school ? '학교명 없음.' : '') + '"' : '') + '>' +
+        '<td class="num">' + idx + '</td><td class="snip"></td>' + COLS.map(function (c) { return cell(c[0], c[1]); }).join('') +
+        '<td class="ops"><button type="button" data-op="merge" title="아래 줄을 이 줄 제목 뒤에 붙임">↓합치기</button> <button type="button" data-op="del" title="이 줄 지우기">✕</button></td></tr>';
+    }).join('');
+    shown.forEach(function (r) {
+      var td = tb.querySelector('tr[data-id="' + r.id + '"] .snip');
+      if (r.snip) { var c = document.createElement('canvas'); c.width = r.snip.width; c.height = r.snip.height; c.getContext('2d').drawImage(r.snip, 0, 0); c.title = '크게 보기'; td.appendChild(c); }
+      else td.innerHTML = '<span class="none">' + (r.manual ? '직접 넣은 줄' : '(사진은 저장하지 않음)') + '</span>';
+    });
+  }
+  function rowOf(el) { var tr = el.closest('tr'); return tr ? rows.find(function (r) { return String(r.id) === tr.dataset.id; }) : null; }
+  $('tbody').addEventListener('change', function (e) {
+    var k = e.target.dataset.k, r = rowOf(e.target); if (!k || !r) return;
+    var v = e.target.value.trim();
+    if (k === 'qty') { var n = parseInt(v, 10); r.qty = isNaN(n) ? '' : n; }
+    else r[k] = v;
+    if (k === 'title') fillAuto(r); else r.hand[k] = true;
+    if (k === 'loc') rememberLoc(v);
+    if (k === 'title' || needsCheck(r) !== e.target.closest('tr').classList.contains('chk')) drawRows();
+    save();
+  });
+  $('tbody').addEventListener('click', function (e) {
+    var cv = e.target.closest('td.snip canvas'), r = rowOf(e.target);
+    if (cv && r && r.snip) { var c = document.createElement('canvas'); c.width = r.snip.width; c.height = r.snip.height; c.getContext('2d').drawImage(r.snip, 0, 0); zoom(c, r.title); return; }
+    var op = e.target.dataset && e.target.dataset.op; if (!op || !r) return;
+    var i = rows.indexOf(r);
+    if (op === 'del') rows.splice(i, 1);
+    if (op === 'merge') {
+      var nx = rows[i + 1]; if (!nx) return;
+      r.title = (r.title + ' ' + nx.title).trim(); r.conf = Math.min(r.conf, nx.conf);
+      fillAuto(r); rows.splice(i + 1, 1);
+    }
+    save(); drawRows();
+  });
+  document.querySelectorAll('.filters button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      filter = b.dataset.f;
+      document.querySelectorAll('.filters button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      drawRows();
+    });
+  });
+  $('addRow').addEventListener('click', function () {
+    var last = rows[rows.length - 1];
+    rows.push(newRow({ loc: last ? last.loc : $('locInput').value.trim(), conf: 100, manual: true }));
+    filter = 'all'; document.querySelectorAll('.filters button').forEach(function (x) { x.setAttribute('aria-pressed', x.dataset.f === 'all' ? 'true' : 'false'); });
+    save(); drawRows();
+    var inp = $('tbody').querySelector('tr:last-child input[data-k=title]'); if (inp) inp.focus();
+  });
+  $('clearBtn').addEventListener('click', function () {
+    if (!rows.length && !photos.length) return;
+    if (!confirm('표의 ' + rows.length + '줄과 넣은 사진을 모두 지울까요? 되돌릴 수 없어요.')) return;
+    rows = []; photos = []; save(); drawPhotos(); drawRows();
+  });
+
+  /* --- 내보내기: 대조표 실물목록 B~J열 순서 --- */
+  var HEAD = ['보관위치', '생산연도', '학교명', '검색키워드', '실물 제목(바인더 표기 그대로)', '문서종류', '권수', '원본/사본', '메모'];
+  function out(r) {
+    var y = /^\d{4}$/.test(String(r.year)) ? Number(r.year) : r.year;
+    return [r.loc, y, r.school, r.kw, r.title, r.kind, r.qty === '' ? '' : r.qty, r.orig, r.memo];
+  }
+  $('copyBtn').addEventListener('click', function () {
+    var msg = $('copyMsg'), keep = msg.innerHTML;
+    if (!rows.length) return;
+    var tsv = rows.map(function (r) { return out(r).map(function (v) { return String(v == null ? '' : v).replace(/[\t\r\n]+/g, ' '); }).join('\t'); }).join('\r\n');
+    var done = function () { msg.innerHTML = '<b>' + rows.length + '줄을 복사했어요.</b> 대조표 실물목록 시트의 <b>B열 첫 빈 칸</b>을 누르고 Ctrl+V 하세요.'; setTimeout(function () { msg.innerHTML = keep; }, 6000); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(tsv).then(done, function () { fallback(tsv); done(); });
+    else { fallback(tsv); done(); }
+  });
+  function fallback(t) { var ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} ta.remove(); }
+  $('xlsxBtn').addEventListener('click', function () {
+    if (!rows.length) { alert('내려받을 줄이 없어요. 먼저 사진을 넣으세요.'); return; }
+    var aoa = [HEAD].concat(rows.map(out));
+    var ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!cols'] = [{ wch: 18 }, { wch: 9 }, { wch: 12 }, { wch: 11 }, { wch: 46 }, { wch: 12 }, { wch: 6 }, { wch: 10 }, { wch: 20 }];
+    ws['!autofilter'] = { ref: 'A1:I' + aoa.length };
+    var wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '실물목록');
+    var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+    XLSX.writeFile(wb, '기록물_실물목록_' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes()) + '.xlsx');
+  });
+
+  /* --- 파일 넣기 --- */
+  var zone = $('zone');
+  $('pickBtn').addEventListener('click', function (e) { e.stopPropagation(); $('photoInput').click(); });
+  $('camBtn').addEventListener('click', function (e) { e.stopPropagation(); $('cameraInput').click(); });
+  zone.addEventListener('click', function () { $('photoInput').click(); });
+  zone.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('photoInput').click(); } });
+  ['dragenter', 'dragover'].forEach(function (t) { zone.addEventListener(t, function (e) { e.preventDefault(); zone.classList.add('over'); }); });
+  ['dragleave', 'drop'].forEach(function (t) { zone.addEventListener(t, function (e) { e.preventDefault(); zone.classList.remove('over'); }); });
+  zone.addEventListener('drop', function (e) { addFiles(e.dataTransfer.files); });
+  $('photoInput').addEventListener('change', function () { addFiles(this.files); this.value = ''; });
+  $('cameraInput').addEventListener('change', function () { addFiles(this.files); this.value = ''; });
+
+  load(); drawLocs(); drawRows();
+  var l0 = locs(); if (l0.length) $('locInput').value = l0[0];
+})();
+</script>
+</body>
+</html>
