@@ -158,7 +158,7 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
     <div id="drop3" style="margin-top:12px">
       <div class="big2">＋ 지난달 특근매식비 내역서 (선택)</div>
       <div class="path p2"><b>지난달에 만드신 파일</b><i>·</i>부서 명단을 가져옵니다</div>
-      <div class="small">넣으면 이번 달 초과근무가 없는 분도 줄이 나옵니다</div>
+      <div class="small">넣으면 지난달 명단 순서대로 줄을 놓습니다</div>
     </div>
     <input type="file" id="file3" accept=".xlsx,.xls,.xlsm" class="hide">
 
@@ -181,6 +181,10 @@ body { font-family: "Pretendard Variable", Pretendard, "Malgun Gothic", "맑은 
       <div class="opt">
         <label>표시 문자</label>
         <input type="text" id="mark" value="0" style="width:64px">
+      </div>
+      <div class="opt">
+        <label>지급 0건인 사람</label>
+        <label style="font-weight:400;display:flex;align-items:center;gap:6px;height:34px"><input type="checkbox" id="keepZero"> 내역에 줄 남기기</label>
       </div>
     </div>
   </div>
@@ -460,8 +464,8 @@ function analyze(grid, opt) {
 
   if (!Object.keys(day).length) throw new Error("읽어들인 자료가 없습니다.");
 
-  /* 지난달 내역서를 넣으셨으면 그 명단 순서를 그대로 쓰고,
-     이번 달 초과근무가 없는 분도 줄을 만들어 둡니다. */
+  /* 지난달 내역서를 넣으셨으면 그 명단 순서를 그대로 씁니다.
+     (지급이 0건인 분은 「내역에 줄 남기기」를 고를 때만 줄이 나옵니다) */
   if (opt.roster && opt.roster.length) {
     var seen = {}, merged = [];
     opt.roster.forEach(function (nm2) {
@@ -497,6 +501,11 @@ function analyze(grid, opt) {
 
   var total = days.filter(function (o) { return o.paid; }).length;
 
+  // 지급 일이 하루도 없는 사람 (내역 시트에서는 기본으로 뺍니다)
+  var hasPaid = {};
+  days.forEach(function (o) { if (o.paid) hasPaid[o.name] = 1; });
+  var zero = order.filter(function (nm) { return !hasPaid[nm]; });
+
   // 현황 시트에 남길 열 (원본 기준 1부터). 없는 열은 제외
   var cNo = findCol(grid, HDR_TOP, "순번");
   var keep = [];
@@ -504,7 +513,7 @@ function analyze(grid, opt) {
     if (c >= 0) keep.push(c + 1);
   });
 
-  return { days: days, basis: basis, bad: bad, order: order, info: info,
+  return { days: days, basis: basis, bad: bad, order: order, info: info, zero: zero,
            year: year, month: month, total: total, sumCol: cSum,
            keepCols: keep, srcWs: null, ledgerWs: null, noName: !nameSeen,
            months: Object.keys(months).sort() };
@@ -532,6 +541,13 @@ function styleCell(c, o) {
   c.alignment = { horizontal: o.h || "center", vertical: "middle", wrapText: !!o.wrap };
   if (o.fill) c.fill = fillOf(o.fill);
   if (o.fmt) c.numFmt = o.fmt;
+}
+
+/* 내역에 줄을 놓을 사람: 「지급 0건인 사람 줄 남기기」를 고르지 않으면 0건인 분은 뺍니다 */
+function listed(res) {
+  var k = el("keepZero");
+  if (k && k.checked) return res.order;
+  return res.order.filter(function (nm) { return res.zero.indexOf(nm) < 0; });
 }
 
 function buildWorkbook(res, opt) {
@@ -576,7 +592,8 @@ function buildWorkbook(res, opt) {
   });
 
   // 사람별 행
-  res.order.forEach(function (nm, i) {
+  var people = listed(res);
+  people.forEach(function (nm, i) {
     var rn = 3 + i, row = ws.getRow(rn);
     row.getCell(1).value = nm;
     styleCell(row.getCell(1), {});             // 가운데 정렬
@@ -598,7 +615,7 @@ function buildWorkbook(res, opt) {
   });
 
   // 합계 행
-  var first = 3, last = 2 + res.order.length, sr = last + 1;
+  var first = 3, last = 2 + people.length, sr = last + 1;
   var rs = ws.getRow(sr);
   rs.getCell(1).value = "합  계";
   styleCell(rs.getCell(1), { size: 12, bold: true, fill: GREEN });
@@ -1102,7 +1119,8 @@ function render() {
   h += '<div class="msg ok"><b>계산이 끝났습니다.</b> &nbsp; ' + esc(STATE.fname) + '</div>';
   h += '<div class="stat">';
   h += '<div><span class="n">' + res.year + '.' + res.month + '</span><span class="l">대상 월</span></div>';
-  h += '<div><span class="n">' + res.order.length + '</span><span class="l">인원</span></div>';
+  var people = listed(res);
+  h += '<div><span class="n">' + people.length + '</span><span class="l">인원</span></div>';
   h += '<div><span class="n">' + res.total + '</span><span class="l">지급 건수</span></div>';
   h += '<div><span class="n">' + (res.total * opt.pay).toLocaleString() + '</span><span class="l">총액(원)</span></div>';
   h += '</div>';
@@ -1111,6 +1129,10 @@ function render() {
   if (conflicts.length) h += '<br><b>판정 기준에 따라 결과가 달라지는 날이 ' + conflicts.length +
                              '일 있습니다.</b> 아래 노란 줄을 확인하세요.';
   if (res.bad.length) h += '<br><b>읽지 못한 행 ' + res.bad.length + '건</b> — 내려받은 검증표에서 확인하세요.';
+  if (res.zero.length) h += '<br>지급 0건인 <b>' + res.zero.length + '명</b>은 ' +
+       (people.length < res.order.length ? '내역 시트에서 뺐습니다' : '내역 시트에 줄만 남겼습니다') + ': ' +
+       res.zero.slice(0, 8).map(esc).join(', ') + (res.zero.length > 8 ? ' 외' : '') +
+       ' <span style="color:#6b7280">(위쪽 「지급 0건인 사람 · 내역에 줄 남기기」로 바꿀 수 있습니다)</span>';
   h += '</div>';
 
   h += '<div class="msg ' + (LEDGER ? 'ok' : 'info') + '" style="font-size:12.5px">' +
@@ -1141,7 +1163,7 @@ function render() {
   }
   h += '<th class="num">일수</th><th class="num">단가</th><th class="num">급량비</th></tr>';
 
-  res.order.forEach(function (nm) {
+  people.forEach(function (nm) {
     var mine = paidBy[nm] || {}, cnt = 0;
     h += '<tr><td class="nmcell">' + esc(nm) + '</td>';
     for (var d = 1; d <= 31; d++) {
@@ -1155,7 +1177,7 @@ function render() {
   h += '<tr class="sum"><td class="nmcell">합  계</td>';
   for (var d = 1; d <= 31; d++) {
     var c = 0;
-    res.order.forEach(function (nm) { if ((paidBy[nm] || {})[d]) c++; });
+    people.forEach(function (nm) { if ((paidBy[nm] || {})[d]) c++; });
     h += '<td class="' + (d > lastDay ? 'wk' : '') + '">' + (c || '') + '</td>';
   }
   h += '<td class="num">' + res.total + '</td><td class="num"></td><td class="num">' +
@@ -1248,6 +1270,9 @@ function render() {
       .catch(fail);
   };
 }
+
+// 「내역에 줄 남기기」를 바꾸면 바로 다시 보여 줌
+el("keepZero").onchange = function () { if (STATE) render(); };
 
 /* 만든 사람 표시 */
 (function(){
