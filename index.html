@@ -442,7 +442,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.10.2 · 2026.10.27 10:30 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.10.3 · 2026.10.29 06:15 수정</a></div>
 </aside>
 
 <div class="main">
@@ -501,6 +501,14 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.10.3</b><span>2026.10.29 06:15</span></div>
+          <ul>
+            <li>기록물: 검색키워드·연도 누락과 수동값/제목 불일치를 표시하고 자동값 복원을 추가했습니다. 다시 읽기 전 수정값 소실 안내, 복사 실패 안내, 엑셀 붙여넣기 범위·대조 한도 안내를 보강했습니다.</li>
+            <li>기록물 대조표: 빈값은 확정 일치에서 제외하고 연도·학교명 표기를 정리해 양방향 대조합니다. 보유목록 G열은 같은 연도 후보 행 수로 표시하고 입력누락은 요약에서도 알립니다. 후보 일치가 실제 철의 동일성을 확정하는 것은 아닙니다.</li>
+            <li>전체 내려받기에 기록물 대조표를 포함하고, 예시 실행 중 도구 이동 시 취소 및 20초 시간 제한을 적용했습니다.</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.10.2</b><span>2026.10.27 10:30</span></div>
           <ul>
@@ -1290,7 +1298,7 @@
 
       <div class="note">
         <p><b>처음 한두 달은 기존 방식과 대조해 보시고 사용하세요.</b> 결과는 반드시 확인 후 사용하시기 바랍니다.</p>
-        <p>업무망 등에서 이 주소가 열리지 않으면, 도구 파일(.html)을 내려받아 더블클릭해도 똑같이 동작합니다.</p>
+        <p>업무망 등에서 이 주소가 열리지 않으면 일반 도구는 파일(.html)을 내려받아 열 수 있습니다. 사진 OCR은 웹 주소에서 사용해야 합니다.</p>
       </div>
 
       <footer>개인이 만든 비공식 업무 보조 도구입니다. · <a href="#feedback">의견·오류 보내기</a></footer>
@@ -1312,8 +1320,8 @@
   });
 
   (function () {
-    var VERSION = '1.10.2';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.10.27 10:30';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.10.3';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.10.29 06:15';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
@@ -1370,7 +1378,7 @@
       'record-photo': {
         need: '캐비닛·선반의 바인더(문서철) 등을 찍은 사진. 한 장에 5~10권, 글씨가 꽉 차게 정면에서 찍으면 잘 읽힙니다. 휴대폰에서 이 주소를 열면 바로 찍어 넣을 수 있어요. 대조할 기록물 대조표 양식은 도구 3번 칸 아래에서 받을 수 있어요.',
         steps: ['보관위치를 적고 사진을 여러 장 한꺼번에 넣기 (글자 방향은 「자동」)', '사진의 파란 상자로 빠진 바인더가 없는지 보고, 표에서 틀린 글자만 고치기 (노란 줄 먼저)', '「표 복사」 → 기록물 대조표 실물목록 시트 B열 첫 빈 칸에 붙여 넣기 (또는 엑셀로 내려받기)'],
-        check: '글자 인식은 완벽하지 않아요. 연도·학교명은 대조에 쓰이니 꼭 확인하세요. 상자가 안 그려진 바인더는 「+ 줄 추가」로 넣습니다. 파일로 내려받아 열면 동작하지 않으니 웹 주소에서 쓰세요.'
+        check: '글자 인식은 완벽하지 않아요. 연도·학교명·검색키워드는 대조에 쓰이니 꼭 확인하세요. 직접 고친 값과 제목이 다르면 노란 줄로 표시합니다. 상자가 안 그려진 바인더는 「+ 줄 추가」로 넣습니다. 파일로 내려받아 열면 동작하지 않으니 웹 주소에서 쓰세요.'
       },
       'contract-ledger': {
         need: '공공데이터포털 인증키(일반 인증키 Decoding)와 기관코드(도구 안에서 이름으로 검색). 인터넷이 필요합니다.',
@@ -1390,27 +1398,41 @@
       'record-photo': { note: '가상 바인더 11권을 찍은 사진 2장(세로쓰기·누운 글씨)', steps: [['#photoInput', ['기록물_1_바인더사진_세로쓰기.jpg', '기록물_2_바인더사진_누운글씨.jpg']]] },
       'excel-merge': { note: '가상 빈 양식과 학교 2곳의 제출 파일', steps: [['#tplInput', ['엑셀취합_빈양식.xlsx']], ['#fileInput', ['엑셀취합_학교1_가나초.xlsx', '엑셀취합_학교2_다라중.xlsx']]] }
     };
+    var sampleRun = 0, sampleAbort = null;
     var wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
     function runSample(id, btn, msg) {
       var sm = SAMPLES[id], fr = document.getElementById('viewer-frame');
+      var run = ++sampleRun, src = fr.getAttribute('src'), deadline = Date.now() + 20000;
+      if (sampleAbort) sampleAbort.abort();
+      var controller = new AbortController(); sampleAbort = controller;
+      var timeout = setTimeout(function () { controller.abort(); }, 20000);
+      function current() {
+        if (controller.signal.aborted || Date.now() > deadline) throw new Error('예시 파일을 넣는 시간이 초과되었습니다.');
+        if (run !== sampleRun || location.hash.slice(1) !== id || fr.getAttribute('src') !== src) throw new Error('도구 이동으로 예시 넣기를 중단했습니다.');
+      }
       btn.disabled = true; msg.textContent = '예시 파일을 넣는 중…';
       var ready = function () {
+        current();
+        if (Date.now() > deadline) throw new Error('도구를 여는 시간이 초과되었습니다.');
         var d = fr.contentDocument;
         return d && d.readyState === 'complete' && d.querySelector(sm.steps[0][0]) ? Promise.resolve() : wait(300).then(ready);
       };
-      var chain = ready();
+      var chain = Promise.resolve().then(ready);
       sm.steps.forEach(function (st) {
         chain = chain.then(function () {
+          current();
           if (!Array.isArray(st[1])) {      // 글 칸(명단 등)에 붙여 넣기
             var w0 = fr.contentWindow, ta = w0.document.querySelector(st[0]);
             ta.value = st[1].text; ta.dispatchEvent(new w0.Event('input', { bubbles: true }));
             return wait(600);
           }
           return Promise.all(st[1].map(function (n) {
-            return fetch('samples/' + encodeURIComponent(n)).then(function (r) { if (!r.ok) throw new Error(n); return r.arrayBuffer(); })
+            return fetch('samples/' + encodeURIComponent(n), { signal: controller.signal }).then(function (r) { if (!r.ok) throw new Error(n); return r.arrayBuffer(); })
               .then(function (b) { return new fr.contentWindow.File([b], n); });
           })).then(function (files) {
+            current();
             var w = fr.contentWindow, inp = w.document.querySelector(st[0]), dt = new w.DataTransfer();
+            if (!inp) throw new Error('예시 파일을 넣을 칸이 없습니다.');
             files.forEach(function (f) { dt.items.add(f); });
             inp.files = dt.files;
             inp.dispatchEvent(new w.Event('change', { bubbles: true }));
@@ -1418,8 +1440,9 @@
           });
         });
       });
-      chain.then(function () { msg.textContent = '넣었어요. 도구 화면에서 결과를 확인해 보세요.'; btn.disabled = false; })
-        .catch(function (e) { msg.textContent = '예시 파일을 넣지 못했어요. 아래 파일을 내려받아 직접 넣어 보세요.'; btn.disabled = false; });
+      chain.then(function () { current(); msg.textContent = '넣었어요. 도구 화면에서 결과를 확인해 보세요.'; btn.disabled = false; })
+        .catch(function (e) { msg.textContent = '예시 파일을 넣지 못했어요. 아래 파일을 내려받아 직접 넣어 보세요.'; btn.disabled = false; })
+        .then(function () { clearTimeout(timeout); if (sampleAbort === controller) sampleAbort = null; });
     }
     window.fillTry = function (id) {
       var box = document.getElementById('help-try'), sm = SAMPLES[id];
@@ -1476,6 +1499,8 @@
     });
 
     function show() {
+      sampleRun++;  // 이전 도구에서 진행하던 예시 파일 주입을 취소
+      if (sampleAbort) sampleAbort.abort();
       var id = location.hash.slice(1);
       var name = TOOLS[id];
       links.forEach(function (a) {
@@ -1530,6 +1555,7 @@
     var BUNDLE = ['index.html',
       'tools/overtime-meal.html', 'tools/overtime-missing.html', 'tools/local-travel.html', 'tools/contract-ledger.html', 'tools/complaint-ledger.html', 'tools/edu-status.html',   // 엑셀 취합기는 점검 중이라 뺌
       'tools/record-photo.html',   // 기록물 실물목록: 파일로 열면 글자 인식이 막혀 「웹 주소에서 여세요」 안내만 보임 (인식 파일 ocr/는 넣지 않음)
+      'samples/기록물_대조표_양식.xlsx',
       'samples/시험용_초과근무확인목록.xlsx',
       'samples/초과근무미입력_1_초과근무확인목록_2026년8월.xlsx', 'samples/초과근무미입력_2_지문기록_2026년8월.xlsx',
       'samples/관내여비_1_대상목록_2026년8월.xlsx', 'samples/관내여비_3_근무상황부_2026년8월.xlsx',
