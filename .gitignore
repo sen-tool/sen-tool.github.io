@@ -20,3 +20,8 @@ Thumbs.db
 /excel_merger.py
 /.claude/
 /.backup/
+
+# 개발 회귀시험
+node_modules/
+test-results/
+playwright-report/
