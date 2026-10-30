@@ -443,7 +443,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.11.0 · 2026.10.30 16:46 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.11.1 · 2026.10.30 16:54 수정</a></div>
 </aside>
 
 <div class="main">
@@ -502,6 +502,14 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.11.1</b><span>2026.10.30 16:54</span></div>
+          <ul>
+            <li>교육환경개선 대시보드: 자치구·우선순위(1순위만, 3·5·10순위 이내)·사업당 금액 필터를 더하고, 지금 조건과 결과를 보고서용 한 문장으로 보여 주고 복사합니다. 요약 숫자 아래에 천원 단위 정확값을 붙였습니다.</li>
+            <li>기관 × 분야 교차표(총괄표 모양, 칸을 누르면 그 기관·분야로 좁힘)와 원문 대조(기관별 PDF 합계 ↔ 총괄표, 차이 목록)를 추가했습니다.</li>
+            <li>사업 목록에 근거(원문 PDF 번호·쪽·연번) 열을 넣고, 교차표·학교별 합계·사업 목록을 지금 조건 그대로 엑셀용 CSV로 내려받을 수 있습니다. 학교별 합계는 이제 조건에 맞는 사업만 더합니다.</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.11.0</b><span>2026.10.30 16:46</span></div>
           <ul>
@@ -1310,8 +1318,8 @@
 
         <div class="tool c-coral" data-id="edu-env-priority">
           <h3><span class="dot"></span><a href="#edu-env-priority">교육환경개선 대상사업 대시보드</a></h3>
-          <p class="desc">서울시교육청 교육시설안전과가 공개한 「2027~2028년 교육환경개선 대상사업 우선순위」 PDF 12개를 표로 옮겨 한 화면에 모았습니다. 교육지원청·학교급·공립/사립·분야로 좁혀 보고, 학교별 합계와 사업 목록을 검색·정렬할 수 있습니다. 학교를 누르면 그 학교 사업만 찾아 줍니다.</p>
-          <p class="io"><span class="in">넣을 것 없음 (공개자료 2,441건 내장)</span><span class="arrow">→</span><span class="out">분야·기관·학교급·자치구별 소요액 · 학교/사업 표</span><span class="net">· 인터넷 없이 됨</span></p>
+          <p class="desc">서울시교육청 교육시설안전과가 공개한 「2027~2028년 교육환경개선 대상사업 우선순위」 PDF 12개를 표로 옮겨 한 화면에 모았습니다. 기관·분야·학교급·공립/사립·자치구·우선순위·사업당 금액으로 좁히면, 그 조건과 결과를 보고서에 붙일 한 문장으로 만들어 줍니다. 기관 × 분야 교차표, 원문 PDF 번호·쪽·연번 근거, 총괄표와의 대조를 함께 보여 주고, 표는 지금 조건 그대로 엑셀용 CSV로 내려받습니다.</p>
+          <p class="io"><span class="in">넣을 것 없음 (공개자료 2,441건 내장)</span><span class="arrow">→</span><span class="out">조건 문장 · 교차표 · 근거 붙은 사업 목록 · CSV</span><span class="net">· 인터넷 없이 됨</span></p>
           <details class="preview" open>
             <summary>화면 예시</summary>
             <p class="cap">전체 기준 · 금액은 소요액 (실제 예산 반영은 재정 여건에 따라 달라질 수 있음)</p>
@@ -1352,8 +1360,8 @@
   });
 
   (function () {
-    var VERSION = '1.11.0';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.10.30 16:46';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.11.1';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.10.30 16:54';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
@@ -1415,8 +1423,8 @@
       },
       'edu-env-priority': {
         need: '넣을 것은 없습니다. 2026.10.8. 교육시설안전과 부서 홈페이지 새소식에 공개된 우선순위 PDF 12개(사업 2,441건)가 도구 안에 들어 있습니다.',
-        steps: ['위쪽 필터(기관·학교급·공립/사립·분야)로 범위 고르기 — 그래프 막대를 눌러도 됨', '요약 숫자와 분야·기관·학교급·자치구별 그래프 보기', '학교별 합계에서 학교를 누르면 아래 사업 목록에서 그 학교 사업만 보임'],
-        check: '공개 PDF를 옮긴 자료라 숫자는 원문과 같지만, 실제 예산 반영 시기와 금액은 재정 여건에 따라 달라집니다. 우선순위는 기관 안에서 분야별로 매긴 순위입니다. 대상 학교 수는 919교로, 총괄표(920교)와 강동송파 1교 차이가 있습니다.'
+        steps: ['위쪽 필터로 범위 고르기 (그래프 막대나 교차표 칸을 눌러도 됨)', '조건 문장·요약 숫자 확인, 「문장 복사」로 보고서에 붙이기', '학교별 합계·사업 목록을 「CSV 내려받기」 (지금 조건 그대로, 엑셀에서 바로 열림)'],
+        check: '공개 PDF를 옮긴 자료라 숫자는 원문과 같지만, 실제 예산 반영 시기와 금액은 재정 여건에 따라 달라집니다. 우선순위는 기관 안에서 분야별로 매긴 순위입니다. 총괄표와 다른 곳(학교 수 1교, 서부 소요액 2천원 등)은 「원문 대조」에 모아 두었고, 사업마다 「근거」로 원문 위치를 확인할 수 있습니다.'
       },
       'contract-ledger': {
         need: '공공데이터포털 인증키(일반 인증키 Decoding)와 기관코드(도구 안에서 이름으로 검색). 인터넷이 필요합니다.',
