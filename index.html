@@ -433,6 +433,7 @@
     <a class="c-pink paused" href="#excel-merge" data-id="excel-merge" title="점검 중이라 지금은 쓸 수 없습니다"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>엑셀 취합기<span class="tag stop">점검 중</span></a>
     <div class="group">계약 · 시설</div>
     <a class="c-coral" href="#contract-ledger" data-id="contract-ledger"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>공사대장 만들기<span class="tag">인터넷</span></a>
+    <a class="c-coral" href="#edu-env-priority" data-id="edu-env-priority"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>교육환경개선 대시보드<span class="tag">보기</span></a>
     <div class="group">기록물</div>
     <a class="c-slate" href="#record-photo" data-id="record-photo"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M9 8v8M12 8v8M15 8v8"/></svg>기록물 실물목록<span class="tag">사진</span></a>
     <div class="group">민원</div>
@@ -442,7 +443,7 @@
     <div class="group">소통</div>
     <a href="#feedback" data-id="feedback"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>의견·오류 보내기</a>
   </nav>
-  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.10.3 · 2026.10.29 06:15 수정</a></div>
+  <div class="foot"><a href="#updates" id="ver" title="업데이트 소식 보기">v1.11.0 · 2026.10.30 16:46 수정</a></div>
 </aside>
 
 <div class="main">
@@ -501,6 +502,12 @@
         <p class="lead">고친 내용을 버전별로 적어 둡니다.</p>
       </header>
       <div class="upd">
+        <div class="upd-item">
+          <div class="upd-v"><b>v1.11.0</b><span>2026.10.30 16:46</span></div>
+          <ul>
+            <li>새 도구 「교육환경개선 대상사업 대시보드」: 교육시설안전과가 공개한 2027~2028 우선순위 PDF 12개(2,441건, 919교, 약 1조 1,824억원)를 한 화면에서 기관·학교급·분야별로 보고, 학교·사업을 검색합니다. 넣을 파일 없이 바로 열립니다.</li>
+          </ul>
+        </div>
         <div class="upd-item">
           <div class="upd-v"><b>v1.10.3</b><span>2026.10.29 06:15</span></div>
           <ul>
@@ -1043,6 +1050,12 @@
           <div class="d">인증키·기관코드·기간 → 계약 21개 항목 엑셀 (공공데이터포털 인증키 필요)</div>
           <div class="f"><span class="online">조달청 서버 접속</span><span class="go">열기 →</span></div>
         </a>
+        <a class="tile c-coral" href="#edu-env-priority">
+          <div class="top"><span class="ic"><svg class="i" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span class="cat">계약 · 시설</span></div>
+          <div class="t">교육환경개선 대상사업 대시보드</div>
+          <div class="d">2027~2028 우선순위 공개자료 2,441건 → 분야·기관·학교별 소요액, 학교·사업 검색</div>
+          <div class="f"><span>자료 내장 · 넣을 것 없음</span><span class="go">열기 →</span></div>
+        </a>
       </nav>
 
       <div class="offline">
@@ -1294,6 +1307,25 @@
             </div>
           </details>
         </div>
+
+        <div class="tool c-coral" data-id="edu-env-priority">
+          <h3><span class="dot"></span><a href="#edu-env-priority">교육환경개선 대상사업 대시보드</a></h3>
+          <p class="desc">서울시교육청 교육시설안전과가 공개한 「2027~2028년 교육환경개선 대상사업 우선순위」 PDF 12개를 표로 옮겨 한 화면에 모았습니다. 교육지원청·학교급·공립/사립·분야로 좁혀 보고, 학교별 합계와 사업 목록을 검색·정렬할 수 있습니다. 학교를 누르면 그 학교 사업만 찾아 줍니다.</p>
+          <p class="io"><span class="in">넣을 것 없음 (공개자료 2,441건 내장)</span><span class="arrow">→</span><span class="out">분야·기관·학교급·자치구별 소요액 · 학교/사업 표</span><span class="net">· 인터넷 없이 됨</span></p>
+          <details class="preview" open>
+            <summary>화면 예시</summary>
+            <p class="cap">전체 기준 · 금액은 소요액 (실제 예산 반영은 재정 여건에 따라 달라질 수 있음)</p>
+            <div class="xl">
+              <div class="scroll">
+                <table>
+                  <tr><th class="navy">총 소요액</th><th class="navy">사업 건수</th><th class="navy">대상 학교</th><th class="navy">가장 큰 분야</th></tr>
+                  <tr><td>1조 1,824억원</td><td>2,441건</td><td>919교</td><td>창호개선 (29.3%)</td></tr>
+                </table>
+              </div>
+              <div class="tabs"><button type="button" class="on">요약</button></div>
+            </div>
+          </details>
+        </div>
       </div>
 
       <div class="note">
@@ -1320,8 +1352,8 @@
   });
 
   (function () {
-    var VERSION = '1.10.3';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
-    var UPDATED = '2026.10.29 06:15';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
+    var VERSION = '1.11.0';       // 도구를 고칠 때마다 올리면 예전 화면이 남지 않습니다
+    var UPDATED = '2026.10.30 16:46';  // 고친 날짜 (왼쪽 메뉴 아래에 버전과 함께 표시)
     document.getElementById('ver').textContent = 'v' + VERSION + ' · ' + UPDATED + ' 수정';
     var TOOLS = {
       'overtime-meal':    '특근매식비 내역서 만들기',
@@ -1331,7 +1363,8 @@
       'contract-ledger':  '공사대장 만들기',
       'complaint-ledger': '고충민원 점검대장 만들기',
       'edu-status':       '법정교육 이수현황 만들기',
-      'record-photo':     '기록물 실물목록 만들기'
+      'record-photo':     '기록물 실물목록 만들기',
+      'edu-env-priority': '교육환경개선 대상사업 대시보드'
     };
     var home = document.getElementById('home');
     var viewer = document.getElementById('viewer');
@@ -1379,6 +1412,11 @@
         need: '캐비닛·선반의 바인더(문서철) 등을 찍은 사진. 한 장에 5~10권, 글씨가 꽉 차게 정면에서 찍으면 잘 읽힙니다. 휴대폰에서 이 주소를 열면 바로 찍어 넣을 수 있어요. 대조할 기록물 대조표 양식은 도구 3번 칸 아래에서 받을 수 있어요.',
         steps: ['보관위치를 적고 사진을 여러 장 한꺼번에 넣기 (글자 방향은 「자동」)', '사진의 파란 상자로 빠진 바인더가 없는지 보고, 표에서 틀린 글자만 고치기 (노란 줄 먼저)', '「표 복사」 → 기록물 대조표 실물목록 시트 B열 첫 빈 칸에 붙여 넣기 (또는 엑셀로 내려받기)'],
         check: '글자 인식은 완벽하지 않아요. 연도·학교명·검색키워드는 대조에 쓰이니 꼭 확인하세요. 직접 고친 값과 제목이 다르면 노란 줄로 표시합니다. 상자가 안 그려진 바인더는 「+ 줄 추가」로 넣습니다. 파일로 내려받아 열면 동작하지 않으니 웹 주소에서 쓰세요.'
+      },
+      'edu-env-priority': {
+        need: '넣을 것은 없습니다. 2026.10.8. 교육시설안전과 부서 홈페이지 새소식에 공개된 우선순위 PDF 12개(사업 2,441건)가 도구 안에 들어 있습니다.',
+        steps: ['위쪽 필터(기관·학교급·공립/사립·분야)로 범위 고르기 — 그래프 막대를 눌러도 됨', '요약 숫자와 분야·기관·학교급·자치구별 그래프 보기', '학교별 합계에서 학교를 누르면 아래 사업 목록에서 그 학교 사업만 보임'],
+        check: '공개 PDF를 옮긴 자료라 숫자는 원문과 같지만, 실제 예산 반영 시기와 금액은 재정 여건에 따라 달라집니다. 우선순위는 기관 안에서 분야별로 매긴 순위입니다. 대상 학교 수는 919교로, 총괄표(920교)와 강동송파 1교 차이가 있습니다.'
       },
       'contract-ledger': {
         need: '공공데이터포털 인증키(일반 인증키 Decoding)와 기관코드(도구 안에서 이름으로 검색). 인터넷이 필요합니다.',
@@ -1446,7 +1484,7 @@
     }
     window.fillTry = function (id) {
       var box = document.getElementById('help-try'), sm = SAMPLES[id];
-      if (!sm) { box.innerHTML = '<p class="try-note">이 도구는 인증키가 필요해서 예시 파일이 없어요. 아래 결과 예시를 참고하세요.</p>'; return; }
+      if (!sm) { box.innerHTML = '<p class="try-note">' + (id === 'edu-env-priority' ? '자료가 도구 안에 들어 있어 넣을 파일이 없어요. 화면에서 바로 보세요.' : '이 도구는 인증키가 필요해서 예시 파일이 없어요. 아래 결과 예시를 참고하세요.') + '</p>'; return; }
       var files = [];
       sm.steps.forEach(function (st) { if (Array.isArray(st[1])) st[1].forEach(function (n) { files.push(n); }); });
       box.innerHTML = '<button type="button" class="try-btn">예시 파일로 해 보기</button>' +
@@ -1554,6 +1592,7 @@
     // 도구 한 번에 받기: 지금 사이트의 파일을 모아 압축 (항상 최신본)
     var BUNDLE = ['index.html',
       'tools/overtime-meal.html', 'tools/overtime-missing.html', 'tools/local-travel.html', 'tools/contract-ledger.html', 'tools/complaint-ledger.html', 'tools/edu-status.html',   // 엑셀 취합기는 점검 중이라 뺌
+      'tools/edu-env-priority.html',   // 교육환경개선 대시보드: 자료가 파일 안에 들어 있음
       'tools/record-photo.html',   // 기록물 실물목록: 파일로 열면 글자 인식이 막혀 「웹 주소에서 여세요」 안내만 보임 (인식 파일 ocr/는 넣지 않음)
       'samples/기록물_대조표_양식.xlsx',
       'samples/시험용_초과근무확인목록.xlsx',
